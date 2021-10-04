@@ -1,0 +1,68 @@
+--- 
+ #Parameters determining the input stimuli
+ stimuli_params:
+  number_of_train_presentations: 1000  # Number of presentations of each stimulus for training
+  number_of_eval_presentations: 15   # As above, but when evaluating the network outside of STDP; if appropriate,
+  # equivalent duration of Poisson inputs is given
+  drift_coef_list: [0]  # [0, 16, 32] Upper limit (ms) of the uniform distribution used for sampling the drift
+  # coefficients corresponding to the neurons
+  num_intervals_for_weight_saving: 5  # Number of intervals at which to perform weight saving and assess firing rates
+  # number_of_train_presentations should be divisible by this number
+  num_seeds: 1  # Number of random seeds to simulate over 
+  poisson_input_rate: 2.85  # Desired rate when using a Poisson input
+  input_layer_size: 20
+  output_layer_size: 20
+  duration_of_presentations: 350 #350 milliseconds
+  duration_of_saccades : 50  # milliseconds in between each stimulus presentation
+  jitter_std: 0.5 # milliseconds; NB this does not affect random input stimuli, which are either
+  # uniformally selected over the presentation window, or given as a pulse packet defined by
+  # noisy_pulse_packet_std
+  stimuli_names: ["t", "inverted_t"]
+  x_rf_range: 1.0 # Unitless extent of the receptive field of any given neuron
+  # 1.0 corresponds to the bottom of the receptive field
+  relative_distances_dic:
+    t: -0.25
+    inverted_t: 0.25
+    nonsense_cross: 0
+  # upper_translation_range: 0.5  # *
+  # spike times as a function of the position in the receptive field
+  diffusion_coef: 2.5  # *diffusion* coefficient for the Brownian motion used to sample spike-times; NB this is common to all neurons
+  initial_times_limit: 3  # Range of times used for the relative spike time at the extreme top of the receptive field
+  spatial_step: 0.01  # The resolution of the Brownian-process determining spike times vs position in receptive field
+  correlated_neuron_pairs_bool: True  # Assume correlations between pairs of neurons (i.e. the same drift coefficients)
+  noisy_pulse_packet_std: 5  # STD (in ms) of the pulse-packet used as noise when presenting synchronous wave inputs
+  spatial_samples: [0.0, 0.25, 0.5]  # Positions of the stimuli to sample for the purpose of translation invariance
+
+# * == Relative distances == 
+# The relative distance between the horizontal bar and vertical bar for a T is 0
+# For an inverted T, the horizontal bar should be 0.3 'down' from the vertical bar reference point
+# With 0.3, then the total amount of possible translation of the letter is a bit larger than the total amount
+# of vertical difference between a T and an inverted T
+
+ #Parameters determining aspects of the spiking network
+ network_params:
+  wmax_search_vals: [0.1,4.0]  # If specified (i.e. not None), ignore "wmax", instead performing
+  # a binary search for a wmax value that optimizes the information theory in the network
+  wmax: 1.7  # 1.7 for stellate cells, 1.8 for pyramidal
+  Apre: 0.04  # 0.02 in S75ng et al 2000; when using a tau pre/post of 10ms (rather than 20ms
+  # in Song et al, increased to 0.04 to ensure similar effect on membrane potential
+  Apost_scaling: 2.0 #2.00  # Scaling in Masquelier 2009 of 0.85; 1.05 in Song et al 2000
+  taupre: 10  # ms of time constant for STDP : 16.8 and 33.7 from Bi and Poo 2001
+  taupost: 10
+  primary_connection_prob: 1.0 # governs feed-forward and lateral connectivity (i.e. to and from inhibitory neurons); typical value 0.75; does
+  # not affect connections from background neurons; therefore set to 0 to assess network activity in the absense of feedforward etc. input
+  delay_upper: 15  # 9 time in ms as upper bound for connection delays in feed-forward weights
+  # Background neuron parameters; NB the connections of these neurons are non-plastic
+  lateral_delay: 1  # delay in ms for lateral connections
+  ff_inhibition_delay: 8  # delay in ms for feed-forward inhibition, in addition to the standard delay
+  estimated_integration_window: 1  # Window in ms over which coincident inputs should be roughly guarenteed
+  # to trigger a spike; estimate with eval_hyperparameters; NB that because of rounding, this is effectively 1ms
+  # when set to 0
+  inh_connection_prob: 0.5 # Connection probability for lateral excitatory and inhibitory connections
+  exc_to_inh_scaling: 1.0  # scaling of exc_to_inh weights vs wmax
+  background_layer_width: 10000
+  background_base_rate: 3 # Although not a specific paper, discussion here about how 0.5-3Hz is a reasonable background firing rate (https://aiimpacts.org/rate-of-neuron-firing/)
+  # background_connection_prob: 0.2  # Connection probability for background connections; reasonable
+  # choice from biology, see e.g. Song 2005 (https://journals.plos.org/plosbiology/article?id=10.1371/journal.pbio.0030068)
+  background_weight: 0.005
+  time_step: 0.05  # in ms
