@@ -551,39 +551,17 @@ def perform_primary_analyses(stimuli_params, layer):
 
 
 	# List of evaluation conditions to look at data from (excludes data collected during training)
-	eval_data_list_no_drift = []#["untrained_poisson_inputs"]#, "poisson_trained_poisson_inputs"]
-
-	eval_data_list_with_drift =  ["untrained_spikepair_inputs", "spikepair_trained_spikepair_inputs",
-		"spikepair_trained_alternating_inputs"]#["untrained_spikepair_inputs"]#, "spikepair_trained_mixed_inputs"] #"untrained_spikepair_inputs", "spikepair_trained_poisson_inputs",
-					 		# 	"spikepair_trained_spikepair_inputs", "poisson_trained_spikepair_inputs", "spikepair_trained_mixed_inputs",
-								# "poisson_trained_mixed_inputs", "untrained_mixed_inputs"]
+	eval_data_list_with_drift =  [
+		"untrained_spikepair_inputs",
+		#"untrained_alternating_inputs",
+		"spikepair_trained_spikepair_inputs",
+		#"spikepair_trained_alternating_inputs"
+		]
 
 	information_theory_fr_dic = {}
 	information_theory_binary_dic_1st = {}
 	information_theory_binary_dic_2nd = {}
 	mean_rate_dic = {}
-
-	for data_set in eval_data_list_no_drift:
-
-		information_theory_fr_dic[data_set] = []
-		mean_rate_dic[data_set] = []
-		information_theory_binary_dic_1st[data_set] = []
-		information_theory_binary_dic_2nd[data_set] = []
-
-		for seed_iter in range(1):
-			print("\nNB currently not iterating over seeds")
-
-			drift_iter = "NA"
-
-			info_fr_temp, info_binary_temp_1st, info_binary_temp_2nd, rate_temp = main_fr_analysis(stimuli_params, data_set,
-					drift_iter, seed_iter, layer=layer)
-			information_theory_fr_dic[data_set].append(info_fr_temp)
-			information_theory_binary_dic_1st[data_set].append(info_binary_temp_1st)
-			information_theory_binary_dic_2nd[data_set].append(info_binary_temp_2nd)
-			mean_rate_dic[data_set].append(rate_temp)
-
-			isi_analysis(stimuli_params, data_set, drift_iter, seed_iter, layer)
-
 
 	for data_set in eval_data_list_with_drift:
 
@@ -611,33 +589,51 @@ def perform_primary_analyses(stimuli_params, layer):
 
 	# ==== PLOT RESULTS ====
 
-	# Information theory
-	for key, val in information_theory_fr_dic.items():
+	# Information theory for binary values
+	for key, val in information_theory_binary_dic_1st.items():
+		# Histogram
 		plt.hist(val, bins=np.array([0, 0.2, 0.4, 0.6, 0.8, 1.0]), alpha=0.5, label=key)
 		plt.legend()
-		plt.xlabel("Information (bits")
-		plt.ylim(0, 32)
-		plt.title("Information in Firing Rates")
-		plt.savefig("analysis_results/info_FR_" + layer + "_" + key + ".png", dpi=300)
+		plt.xlabel("Information (bits)")
+		plt.ylim(0, stimuli_params["output_layer_size"])
+		plt.title("Information in Binary Activity - 1st stimulus")
+		plt.savefig("analysis_results/hist_info_1_binary_" + layer + "_" + key + ".png", dpi=300)
 		plt.clf()
 
-	# Information theory
-	for key, val in information_theory_binary_dic_1st.items():
-		plt.hist(val, bins=np.array([0, 0.2, 0.4, 0.6, 0.8, 1.0]), alpha=0.5, label=key)
+		# Ranked information
+		# Sorts the array (ascending) and then reverses the order
+		plt.plot(np.arange(stimuli_params["output_layer_size"]), np.flip(np.sort(val))[0,:],
+					color="dodgerblue", alpha=0.5, label=key)
 		plt.legend()
-		plt.xlabel("Information (bits")
-		plt.ylim(0, 32)
+		plt.xlabel("Cell Rank")
+		plt.ylabel("Information (bits)")
+		plt.ylim(0, 1)
+		plt.xlim(0, stimuli_params["output_layer_size"])
 		plt.title("Information in Binary Activity - 1st stimulus")
-		plt.savefig("analysis_results/info_1_binary_" + layer + "_" + key + ".png", dpi=300)
+		plt.savefig("analysis_results/ranked_info_1_binary_" + layer + "_" + key + ".png", dpi=300)
 		plt.clf()
 
 	for key, val in information_theory_binary_dic_2nd.items():
+		# Histogram
 		plt.hist(val, bins=np.array([0, 0.2, 0.4, 0.6, 0.8, 1.0]), alpha=0.5, label=key)
 		plt.legend()
-		plt.xlabel("Information (bits")
-		plt.ylim(0, 32)
+		plt.xlabel("Information (bits)")
+		plt.ylim(0, stimuli_params["output_layer_size"])
 		plt.title("Information in Binary Activity - 2nd stimulus")
-		plt.savefig("analysis_results/info_2_binary_" + layer + "_" + key + ".png", dpi=300)
+		plt.savefig("analysis_results/hist_info_2_binary_" + layer + "_" + key + ".png", dpi=300)
+		plt.clf()
+
+		# Ranked information
+		# Sorts the array (ascending) and then reverses the order
+		plt.plot(np.arange(stimuli_params["output_layer_size"]), np.flip(np.sort(val))[0,:],
+					color="dodgerblue", alpha=0.5, label=key)
+		plt.legend()
+		plt.xlabel("Cell Rank")
+		plt.ylabel("Information (bits)")
+		plt.ylim(0, 1)
+		plt.xlim(0, stimuli_params["output_layer_size"])
+		plt.title("Information in Binary Activity - 2nd stimulus")
+		plt.savefig("analysis_results/ranked_info_2_binary_" + layer + "_" + key + ".png", dpi=300)
 		plt.clf()
 
 	# Mean rates
@@ -687,13 +683,6 @@ if __name__ == '__main__':
 	# - change of weight distributions --> double check that the 'final' weights are equivalent to the final time point weights
 	# - change of firing rates --> NB this can be done by simply binning the spiking activity collected at the end of training,
 	# binning it as desired 
-
-
-	# data_set = "during_poisson_training"
-	# drift_iter = "NA"
-	# for seed_iter in range(1):
-
-	# 	weights_across_time(stimuli_params, network_params, data_set, seed_iter, drift_iter)
 
 
 	# data_set = "during_spikepair_training"
