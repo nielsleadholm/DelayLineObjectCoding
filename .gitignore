@@ -1,2 +1,6 @@
 __pycache__/
 .DS_Store
+analysis_results
+figures
+raw_data
+weights
