@@ -1,7 +1,10 @@
+from brian2 import *
+import copy
 import json
 import numpy as np
 import os
 import pprint
+import random
 import yaml
 import matplotlib.pyplot as plt
 from analyse_sim_results import extract_firing_rates
@@ -33,12 +36,7 @@ def extract_data(params, data_set, drift_iter, seed_iter, layer="output"):
 	return output_features, labels
 
 
-def train_classifier(stimuli_params, train_dataset, eval_dataset):
-
-	print("===TEMPORARILY USING HARD-CODED *DATA-SETS*===")
-	drift_iter = stimuli_params["drift_coef_list"][0]
-	seed_iter = 0
-
+def train_classifier(seed_iter, drift_iter, stimuli_params, train_dataset, eval_dataset):
 
 
 	classifier_training_features, classifier_training_labels = extract_data(stimuli_params, train_dataset,
@@ -46,35 +44,18 @@ def train_classifier(stimuli_params, train_dataset, eval_dataset):
 	
 
 
-	# print("Training features")
-	# print(np.shape(classifier_training_features))
-	# print(classifier_training_features)
 
-	# print("Training labels:")
-	# print(classifier_training_labels)
-	# print(np.shape(classifier_training_labels))
-
-
-	# *** randomize the order of the training data **
-
-	rand_idx = np.random.permutation(len(classifier_training_labels))
-    classifier_training_features = classifier_training_features[rand_idx]
-    classifier_training_labels = classifier_training_labels[rand_idx]
-
-    print("\n\n\n\n=== TESTING THE INFLUENCE OF SHUFFLED DATA! ===")
+	# As "number_of_eval_presentations" is used by a variety of down-stream analysis code
+	# to e.g. appropriately extract firing rates, temporarily set this to the correct
+	# value for the *classifier evaluation* data-set (i.e. "number_of_classifier_assessment_presentations")
+	number_of_presents_backup = copy.copy(stimuli_params["number_of_eval_presentations"])
+	stimuli_params["number_of_eval_presentations"] = stimuli_params["number_of_classifier_assessment_presentations"]
 
 	classifier_eval_features, classifier_eval_labels = extract_data(stimuli_params, eval_dataset,
 																	drift_iter, seed_iter, layer="output")
 	
-	# Normalize evaluation data based on training data values
-	#classifier_eval_features = classifier_eval_features / normalization_max
+	stimuli_params["number_of_eval_presentations"] = copy.copy(number_of_presents_backup)
 
-	# print("Eval data")
-	# print(classifier_eval_features)
-	# print(classifier_eval_labels)
-	# #print(np.amax(classifier_eval_features, axis=0))
-
-	#print("\nClassifier")
 	clf = LogisticRegression(random_state=0).fit(classifier_training_features,
 												 classifier_training_labels)
 	
@@ -82,26 +63,18 @@ def train_classifier(stimuli_params, train_dataset, eval_dataset):
 
 	results_dic["training_acc"] = clf.score(classifier_training_features, classifier_training_labels)
 	results_dic["eval_acc"] = clf.score(classifier_eval_features, classifier_eval_labels)
-	results_dic["eval_prob_scores"] = clf.predict_proba(classifier_eval_features)
+	results_dic["eval_prob_scores"] = (clf.predict_proba(classifier_eval_features)).tolist()
 
-	print("Original prob scores")
-	print(np.shape(results_dic["eval_prob_scores"]))
-	print(results_dic["eval_prob_scores"])
-
-	print("Flattened prob scores:")
-	print(np.shape(np.flatten(results_dic["eval_prob_scores"])))
-	print(np.flatten(results_dic["eval_prob_scores"]))
-
-	plt.hist(np.flatten(results_dic["eval_prob_scores"]), bins=10)
+	plt.hist(np.asarray(results_dic["eval_prob_scores"]).flatten(), bins=10)
 	plt.title("Prob scores: " + eval_dataset)
-	plt.savefig("analysis_results/prob_scores_" + eval_dataset)
+	plt.savefig("analysis_results/" + str(seed_iter) + "/prob_scores_" + eval_dataset)
 	plt.clf()
 
-	print("\nResults:")
+	print("Results:")
 	pprint.pprint(results_dic, depth=1)
 
-	with open("analysis_results/" + str(seed_iter) "/results_" + eval_dataset + ".json", 'w') as f:
-    	json.dump(results_dic, f)
+	with open("analysis_results/" + str(seed_iter) + "/results_" + eval_dataset + ".json", 'w') as f:
+		json.dump(results_dic, f)
 
 
 if __name__ == '__main__':
@@ -112,23 +85,44 @@ if __name__ == '__main__':
 		except OSError:
 			pass
 
-	print("\nAssessing performane of linear classifiers trained on network activity")
+	print("\n\nAssessing performance of linear classifiers trained on network activity")
+
 	with open('config_TranslationInvariance.yaml') as f:
 		params = yaml.load(f, Loader=yaml.FullLoader)
 
 	stimuli_params = params["stimuli_params"]
 	network_params = params["network_params"]
 
-	print("\n\nEvaluating accuracy of classifier *BEFORE* STDP learning...")
-	train_classifier(stimuli_params, train_dataset="untrained_spikepair_inputs",
-					 eval_dataset="untrained_spikepair_inputs_classifier")
+	for seed_iter in stimuli_params["seeds_list"]:
 
-	print("\n\nEvaluating accuracy of classifier following STDP learning...")
-	train_classifier(stimuli_params, train_dataset="spikepair_trained_spikepair_inputs",
-					 eval_dataset="spikepair_trained_spikepair_inputs_classifier")
+		# Set seed for both Brian and Numpy; re-set for each drift iter
+		seed(seed_iter)
+		random.seed(seed_iter)
 
-	# print("\n\nEvaluating accuracy of classifier following STDP learning *ON NONSENSE INPUTS*...")
-	# print("Poor accuracy expected")
-	# train_classifier(stimuli_params, train_dataset="spikepair_trained_spikepair_inputs",
-	# 				 eval_dataset="spikepair_trained_spikepair_inputs_nonsense")
+		if os.path.exists("analysis_results/" + str(seed_iter)) == 0:
+			try:
+				os.mkdir("analysis_results/" + str(seed_iter))
+			except OSError:
+				pass
+
+
+		for drift_iter in stimuli_params["drift_coef_list"]:
+
+
+			print("\n\nEvaluating accuracy of classifier on different T's *BEFORE* STDP learning...")
+			train_classifier(seed_iter, drift_iter, stimuli_params, train_dataset="untrained_spikepair_inputs",
+							 eval_dataset="untrained_spikepair_inputs_classifier")
+
+			print("\n\nEvaluating accuracy of classifier on different T's *FOLLOWING* STDP learning...")
+			train_classifier(seed_iter, drift_iter, stimuli_params, train_dataset="spikepair_trained_spikepair_inputs",
+							 eval_dataset="spikepair_trained_spikepair_inputs_classifier")
+
+
+			print("\n\n\n\nEvaluating accuracy of classifier on NOISE vs objects *BEFORE* STDP learning...")
+			train_classifier(seed_iter, drift_iter, stimuli_params, train_dataset="untrained_alternating_inputs",
+							 eval_dataset="untrained_alternating_inputs_classifier")
+
+			print("\n\nEvaluating accuracy of classifier on NOISE vs objects *FOLLOWING* STDP learning...")
+			train_classifier(seed_iter, drift_iter, stimuli_params, train_dataset="spikepair_trained_alternating_inputs",
+							 eval_dataset="spikepair_trained_alternating_inputs_classifier")
 

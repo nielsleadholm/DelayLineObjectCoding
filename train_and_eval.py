@@ -1,4 +1,5 @@
 from brian2 import *
+import copy
 import numpy as np
 import os
 import pprint
@@ -46,69 +47,38 @@ if __name__ == '__main__':
 	network_params = params['network_params']
 
 
-	for seed_iter in range(stimuli_params["num_seeds"]):
+	for seed_iter in stimuli_params["seeds_list"]:
 
-		# print("====TEMPORARILY SETTING A DIFFERENT SEED")
-
-		# seed_iter = 1
-
-		# === SETUP ===
-
-		# Set seed for both Brian and Numpy
 		print("\n\n==NEW SEED== : " + str(seed_iter))
-		seed(seed_iter)
-		random.seed(seed_iter)		
 
-		[make_directories(dir_name, seed_iter, sub_dir_list=["input_stimuli", 
-					 "untrained_poisson_inputs", "during_poisson_training",
-					 "poisson_trained_poisson_inputs"]) for dir_name in ["weights", "figures", "raw_data"]]
-
-
-		# # EVALUATE without any training, given Poisson input, and initialize starting weights
-		# run_params = {"weight_file" : None,
-		# 			  "STDP_on_bool" : False,
-		# 			  "input_stim" : None,  # Options are None for Poisson input or
-		# 			  # (spike_IDs, spike_times) for spike-pair inputs or spike_wave_input
-		# 			  "output_dir" : "/untrained_poisson_inputs" + "_drift_iter_NA"
-		# 			  }
-		# run_simulation.main_run(stimuli_params, network_params, run_params, seed_iter,
-		# 		initialize_weights_bool=True)
-
-
-		# # TRAIN a copy of the network with Poisson input
-		# run_params = {"weight_file" : "weights/" + str(seed_iter) + "/rand",
-		# 			  "STDP_on_bool" : True,
-		# 			  "input_stim" : None,
-		# 			  "output_dir" : "/during_poisson_training" + "_drift_iter_NA"
-		# 			  }
-		# run_simulation.main_run(stimuli_params, network_params, run_params, seed_iter)
-
-
-		# # EVALUATE the Poisson trained network with Poisson inputs
-		# # NB that with the random seed as set, this will *not* be the same Poisson input
-		# # used during pre-training or training
-		# run_params = {"weight_file" : "weights/" + str(seed_iter) + "/during_poisson_training_drift_iter_NA/" + "final",
-		# 			  "STDP_on_bool" : False,
-		# 			  "input_stim" : None,
-		# 			  "output_dir" : "/poisson_trained_poisson_inputs" + "_drift_iter_NA"
-		# 			  }
-		# run_simulation.main_run(stimuli_params, network_params, run_params, seed_iter)
-
-
+		[make_directories(dir_name, seed_iter, sub_dir_list=["input_stimuli"]) for dir_name in ["figures"]]
 
 		for drift_iter in stimuli_params["drift_coef_list"]:
 
+			# =============================================================================
+			# SETUP     
+			# =============================================================================
+
+			# Set seed for both Brian and Numpy; re-set for each drift iter
+			seed(seed_iter)
+			random.seed(seed_iter)
 
 			print("\nCurrent drift coefficient limit: " + str(drift_iter))
-			[make_directories(dir_name, seed_iter, sub_dir_list=["untrained_spikepair_inputs",
-					 "during_spikepair_training", "spikepair_trained_poisson_inputs",
-					 "spikepair_trained_spikepair_inputs", "poisson_trained_spikepair_inputs",
-					 "spikepair_trained_mixed_inputs", "poisson_trained_mixed_inputs", "untrained_mixed_inputs",
-					 "spikepair_trained_spikepair_inputs_classifier",
-					 "untrained_spikepair_inputs_classifier",
-					 #"spikepair_trained_spikepair_inputs_nonsense",
-					 "spikepair_trained_alternating_inputs"]
-					 , drift_iter=drift_iter) for dir_name in ["weights", "figures", "raw_data"]]
+			[make_directories(dir_name, seed_iter, sub_dir_list=[				
+				"untrained_spikepair_inputs",
+				"untrained_spikepair_inputs_classifier",
+
+				"untrained_alternating_inputs",
+				"untrained_alternating_inputs_classifier",
+
+				"during_spikepair_training",
+
+				"spikepair_trained_spikepair_inputs",
+				"spikepair_trained_spikepair_inputs_classifier",
+
+				"spikepair_trained_alternating_inputs",
+				"spikepair_trained_alternating_inputs_classifier"],
+				drift_iter=drift_iter) for dir_name in ["weights", "figures", "raw_data"]]
 
 
 			# Generate the underlying spike-timing slopes that will form the basis of all the
@@ -121,46 +91,116 @@ if __name__ == '__main__':
 				relative_times_horizontal, neuron_drift_coefs_dic, seed_iter)
 
 
-			# # Generate pre-training spike IDs; note that due to eval_bool, these may be generated
-			# # for a different total duration than the training ones
-			# pre_training_spike_IDs, pre_training_spike_times, spike_pair_differences = generate_spikes_fixed_pairs(stimuli_params, assembly_IDs,
-			#     relative_times_vertical, relative_times_horizontal, seed_iter, eval_bool=True)
+
+			# =============================================================================
+			# PRE TRAINING - UPRIGHT AND INVERTED INPUTS 
+			# =============================================================================
+
+			# Generate pre-training spike IDs; note that due to eval_bool, these will be generated
+			# for a different total duration than the training inputs
+			pre_training_spike_IDs, pre_training_spike_times, spike_pair_differences = generate_spikes_fixed_pairs(stimuli_params, assembly_IDs,
+			    relative_times_vertical, relative_times_horizontal, seed_iter, eval_bool=True)
 			
-			# plot_input_raster(stimuli_params, assembly_IDs, pre_training_spike_IDs, pre_training_spike_times,
-			# 		neuron_drift_coefs_dic, seed_iter, eval_bool=True, input_name="pre_training")
+			plot_input_raster(stimuli_params, assembly_IDs, pre_training_spike_IDs, pre_training_spike_times,
+					neuron_drift_coefs_dic, seed_iter, eval_bool=True, input_name="pre_training")
 
-			# print("====TEMPORARILY INITIALIZING WEIGHTS HERE")
-
-			# # EVALUATE the network on the spatio-temporal input before training
-			# run_params = {"weight_file" : "weights/" + str(seed_iter) + "/rand",
-			# 			  "STDP_on_bool" : False,
-			# 			  "input_stim" : [pre_training_spike_IDs, pre_training_spike_times],
-			# 	  		  "output_dir" : "/untrained_spikepair_inputs" + "_drift_iter_" + str(drift_iter)
-			# 			  }
-			# run_simulation.main_run(stimuli_params, network_params, run_params, seed_iter,
-			# 	spike_pair_differences, initialize_weights_bool=True)
+			# EVALUATE the network on the spatio-temporal input before training, and initialize weights
+			run_params = {"weight_file" : "weights/" + str(seed_iter) + "/rand",
+						  "STDP_on_bool" : False,
+						  "input_stim" : [pre_training_spike_IDs, pre_training_spike_times],
+				  		  "output_dir" : "/untrained_spikepair_inputs" + "_drift_iter_" + str(drift_iter)
+						  }
+			run_simulation.main_run(stimuli_params, network_params, run_params, seed_iter,
+				spike_pair_differences, initialize_weights_bool=True)
 
 
-			# #exit()
+			# Generate pre-STDP-training EVALUATION data for the *LINEAR CLASSIFIER* (i.e. to deteremine
+			# the benefit of STDP for the classifier)
 
-			# # Generate pre-training spike for the *LINEAR CLASSIFIER*; note that due to eval_bool, these may be generated
-			# # for a different total duration than the training ones
-			# classifier_pre_training_spike_IDs, classifier_pre_training_spike_times, spike_pair_differences = generate_spikes_fixed_pairs(stimuli_params, assembly_IDs,
-			#     relative_times_vertical, relative_times_horizontal, seed_iter, eval_bool=True)
+			# As "number_of_eval_presentations" is used by a variety of down-stream analysis code
+			# to e.g. appropriately extract firing rates, temporarily set this to the correct
+			# value for this particular data-set (number_of_classifier_assessment_presentations)
+			# This enables evaluating the classifier on more data than it is trained on
+			number_of_presents_backup = copy.copy(stimuli_params["number_of_eval_presentations"])
+			stimuli_params["number_of_eval_presentations"] = copy.copy(stimuli_params["number_of_classifier_assessment_presentations"])
+			classifier_pre_training_spike_IDs, classifier_pre_training_spike_times, spike_pair_differences = generate_spikes_fixed_pairs(stimuli_params, assembly_IDs,
+			    relative_times_vertical, relative_times_horizontal, seed_iter, eval_bool=True)
 			
-			# plot_input_raster(stimuli_params, assembly_IDs, classifier_pre_training_spike_IDs, classifier_pre_training_spike_times,
-			# 		neuron_drift_coefs_dic, seed_iter, eval_bool=True, input_name="classifier_pre_training")
+			plot_input_raster(stimuli_params, assembly_IDs, classifier_pre_training_spike_IDs, classifier_pre_training_spike_times,
+					neuron_drift_coefs_dic, seed_iter, eval_bool=True, input_name="classifier_pre_training")
 
-			# # EVALUATE the network on the spatio-temporal input before training
-			# run_params = {"weight_file" : "weights/" + str(seed_iter) + "/rand",
-			# 			  "STDP_on_bool" : False,
-			# 			  "input_stim" : [classifier_pre_training_spike_IDs, classifier_pre_training_spike_times],
-			# 	  		  "output_dir" : "/untrained_spikepair_inputs_classifier" + "_drift_iter_" + str(drift_iter)
-			# 			  }
-			# run_simulation.main_run(stimuli_params, network_params, run_params, seed_iter,
-			# 	spike_pair_differences, initialize_weights_bool=False)
+			# EVALUATE the network on the spatio-temporal input before training
+			run_params = {"weight_file" : "weights/" + str(seed_iter) + "/rand",
+						  "STDP_on_bool" : False,
+						  "input_stim" : [classifier_pre_training_spike_IDs, classifier_pre_training_spike_times],
+				  		  "output_dir" : "/untrained_spikepair_inputs_classifier" + "_drift_iter_" + str(drift_iter)
+						  }
+			run_simulation.main_run(stimuli_params, network_params, run_params, seed_iter,
+				spike_pair_differences)
+			# Reset the number of eval presentations
+			stimuli_params["number_of_eval_presentations"] = copy.copy(number_of_presents_backup)
 
 
+
+			# =============================================================================
+			# PRE TRAINING - ALTERNATING NOISE AND OBJECTS INPUTS
+			# =============================================================================
+
+			# GENERATE spikes that alternate stimuli and noise - BEFORE any STDP training
+			number_of_presents_backup = copy.copy(stimuli_params["number_of_train_presentations"])
+			# We set eval_bool to False to alternate stimuli and noise, but to ensure the
+			# number of presentations is comparable, number_of_train_presentations is potentially set
+			# NB for example that information theory code will always use number_of_eval_presentations
+			stimuli_params["number_of_train_presentations"] = copy.copy(stimuli_params["number_of_eval_presentations"])
+			alternating_spike_IDs_pre_train, alternating_spike_times_pre_train, spike_pair_differences = generate_spikes_fixed_pairs(stimuli_params, assembly_IDs,
+			    relative_times_vertical, relative_times_horizontal, seed_iter)
+			
+			plot_input_raster(stimuli_params, assembly_IDs, alternating_spike_IDs_pre_train, alternating_spike_times_pre_train,
+				neuron_drift_coefs_dic, seed_iter, eval_bool=False, input_name="alternating_pre_train")
+
+			run_params = {"weight_file" : "weights/" + str(seed_iter) + "/rand",
+						  "STDP_on_bool" : False,
+						  "input_stim" : [alternating_spike_IDs_pre_train, alternating_spike_times_pre_train],
+				  		  "output_dir" : "/untrained_alternating_inputs" + "_drift_iter_" + str(drift_iter)
+						  }
+			run_simulation.main_run(stimuli_params, network_params, run_params, seed_iter,
+				spike_pair_differences)
+			stimuli_params["number_of_train_presentations"] = copy.copy(number_of_presents_backup)
+
+
+			# As above, but for EVALUATING the LINEAR CLASSIFIER on the alternating stimuli
+			number_of_presents_backup = copy.copy(stimuli_params["number_of_train_presentations"])
+			number_of_presents_backup_two = copy.copy(stimuli_params["number_of_eval_presentations"])
+			# We set eval_bool to False to alternate stimuli and noise, but to ensure the
+			# number of presentations is comparable, number_of_train_presentations is potentially set
+			# NB for example that information theory code will always use number_of_eval_presentations
+			# Because main_run will use number_of_eval_presentations unless STDP is active, also set this
+			stimuli_params["number_of_train_presentations"] = copy.copy(stimuli_params["number_of_classifier_assessment_presentations"])
+			stimuli_params["number_of_eval_presentations"] = copy.copy(stimuli_params["number_of_classifier_assessment_presentations"])
+			classifier_alternating_spike_IDs_pre_train, classifier_alternating_spike_times_pre_train, spike_pair_differences = generate_spikes_fixed_pairs(stimuli_params, assembly_IDs,
+			    relative_times_vertical, relative_times_horizontal, seed_iter)
+			
+			plot_input_raster(stimuli_params, assembly_IDs, classifier_alternating_spike_IDs_pre_train,
+				classifier_alternating_spike_times_pre_train,
+				neuron_drift_coefs_dic, seed_iter, eval_bool=False, input_name="classifier_alternating_pre_train")
+
+			# TRAIN the network on spatiotemporally structured inputs
+			run_params = {"weight_file" : "weights/" + str(seed_iter) + "/rand",
+						  "STDP_on_bool" : False,
+						  "input_stim" : [classifier_alternating_spike_IDs_pre_train,
+						  		classifier_alternating_spike_times_pre_train],
+				  		  "output_dir" : "/untrained_alternating_inputs_classifier" + "_drift_iter_" + str(drift_iter)
+						  }
+			run_simulation.main_run(stimuli_params, network_params, run_params, seed_iter,
+				spike_pair_differences)
+			stimuli_params["number_of_train_presentations"] = copy.copy(number_of_presents_backup)
+			stimuli_params["number_of_eval_presentations"] = copy.copy(number_of_presents_backup_two)
+
+
+
+			# =============================================================================
+			# STDP TRAINING       
+			# =============================================================================
 
 			# # GENERATE spikes for training
 			# training_spike_IDs, training_spike_times, spike_pair_differences = generate_spikes_fixed_pairs(stimuli_params, assembly_IDs,
@@ -182,17 +222,9 @@ if __name__ == '__main__':
 
 
 
-			# # # # # EVALUATE the spatio-temporally trained network on Poisson inputs
-			# # # # run_params = {"weight_file" : ("weights/" + str(seed_iter) + "/during_spikepair_training"
-			# # # # 							   + "_drift_iter_" + str(drift_iter) + "/final"),
-			# # # # 			  "STDP_on_bool" : False,
-			# # # # 			  "input_stim" : None,
-			# # # # 	  		  "output_dir" : "/spikepair_trained_poisson_inputs" + "_drift_iter_" + str(drift_iter)
-			# # # # 			  }
-			# # # # run_simulation.main_run(stimuli_params, network_params, run_params, seed_iter,
-			# # # #spike_pair_differences)
-
-
+			# =============================================================================
+			# POST TRAINING - UPRIGHT AND INVERTED INPUTS    
+			# =============================================================================
 
 			# # GENERATE the evaluation spikes, iterating (in blocks) through the possible translations
 		 #    # eval_bool determines how translations are sampled (i.e. in blocks as opposed to in a random order)
@@ -202,8 +234,6 @@ if __name__ == '__main__':
 
 			# plot_input_raster(stimuli_params, assembly_IDs, eval_spike_IDs, eval_spike_times,
 			# 	neuron_drift_coefs_dic, seed_iter, eval_bool=True, input_name="evaluation_spikepairs")
-
-
 
 			# # EVALUATE the spatio-temporally trained network on spatio-temporal inputs
 			# run_params = {"weight_file" : ("weights/" + str(seed_iter) + "/during_spikepair_training"
@@ -215,25 +245,16 @@ if __name__ == '__main__':
 			# run_simulation.main_run(stimuli_params, network_params, run_params, seed_iter,
 			# 	spike_pair_differences)
 
-			# # # EVALUATE the Poisson trained network on spatio-temporal inputs
-			# # run_params = {"weight_file" : "weights/" + str(seed_iter) + "/during_poisson_training_drift_iter_NA/" + "final",
-			# # 			  "STDP_on_bool" : False,
-			# # 			  "input_stim" : [eval_spike_IDs, eval_spike_times],
-			# # 	  		  "output_dir" : "/poisson_trained_spikepair_inputs" + "_drift_iter_" + str(drift_iter)
-			# # 			  }
-			# # run_simulation.main_run(stimuli_params, network_params, run_params, seed_iter)
 
-
-
-			# # GENERATE the evaluation spikes for the *LINEAR CLASSIFIER*, iterating (in blocks) through the possible translations
-		 #    # eval_bool determines how translations are sampled (i.e. in blocks as opposed to in a random order)
+			# # GENERATE the EVALUATION spikes for the *LINEAR CLASSIFIER*, where the network has now been trained with STDP
 			# print("\nGenerating spatio-temporal patterns for *classifier evaluation*")
+			# number_of_presents_backup = copy.copy(stimuli_params["number_of_eval_presentations"])
+			# stimuli_params["number_of_eval_presentations"] = stimuli_params["number_of_classifier_assessment_presentations"]
 			# classifier_eval_spike_IDs, classifier_eval_spike_times, spike_pair_differences = generate_spikes_fixed_pairs(stimuli_params, assembly_IDs,
 			#     relative_times_vertical, relative_times_horizontal, seed_iter, eval_bool=True)
 
 			# plot_input_raster(stimuli_params, assembly_IDs, classifier_eval_spike_IDs, classifier_eval_spike_times,
 			# 	neuron_drift_coefs_dic, seed_iter, eval_bool=True, input_name="classifier_evaluation_spikepairs")
-
 
 			# # EVALUATE the spatio-temporally trained network on spatio-temporal inputs for the Linear Classifier
 			# run_params = {"weight_file" : ("weights/" + str(seed_iter) + "/during_spikepair_training"
@@ -244,20 +265,26 @@ if __name__ == '__main__':
 			# 			  }
 			# run_simulation.main_run(stimuli_params, network_params, run_params, seed_iter,
 			# 	spike_pair_differences)
+			# stimuli_params["number_of_eval_presentations"] = copy.copy(number_of_presents_backup)
 
 
 
+			# =============================================================================
+			# POST TRAINING - ALTERNATING NOISE AND OBJECTS INPUTS
+			# =============================================================================	
 
-			# GENERATE spikes that alternate stimuli and noise
+			# GENERATE spikes that alternate stimuli and noise - AFTER STDP training
+			number_of_presents_backup = copy.copy(stimuli_params["number_of_train_presentations"])
+			# We set eval_bool to False to alternate stimuli and noise, but to ensure the
+			# number of presentations is comparable, number_of_train_presentations is potentially set
+			# NB for example that information theory code will always use number_of_eval_presentations
+			stimuli_params["number_of_train_presentations"] = copy.copy(stimuli_params["number_of_eval_presentations"])
 			alternating_spike_IDs, alternating_spike_times, spike_pair_differences = generate_spikes_fixed_pairs(stimuli_params, assembly_IDs,
 			    relative_times_vertical, relative_times_horizontal, seed_iter)
 			
 			plot_input_raster(stimuli_params, assembly_IDs, alternating_spike_IDs, alternating_spike_times,
-				neuron_drift_coefs_dic, seed_iter, eval_bool=False, input_name="alternating")
+				neuron_drift_coefs_dic, seed_iter, eval_bool=False, input_name="alternating_post_train")
 
-			#print("====TEMPORARILY INITIALIZING WEIGHTS HERE")
-
-			# TRAIN the network on spatiotemporally structured inputs
 			run_params = {"weight_file" : ("weights/" + str(seed_iter) + "/during_spikepair_training"
 										   + "_drift_iter_" + str(drift_iter) + "/final"),
 						  "STDP_on_bool" : False,
@@ -266,29 +293,32 @@ if __name__ == '__main__':
 						  }
 			run_simulation.main_run(stimuli_params, network_params, run_params, seed_iter,
 				spike_pair_differences)
+			stimuli_params["number_of_train_presentations"] = copy.copy(number_of_presents_backup)
 
 
+			# As above, but for EVALUATING the LINEAR CLASSIFIER on the alternating stimuli
+			number_of_presents_backup = copy.copy(stimuli_params["number_of_train_presentations"])
+			number_of_presents_backup_two = copy.copy(stimuli_params["number_of_eval_presentations"])
+			# We set eval_bool to False to alternate stimuli and noise, but to ensure the
+			# number of presentations is comparable, number_of_train_presentations is potentially set
+			# NB for example that information theory code will always use number_of_eval_presentations
+			stimuli_params["number_of_train_presentations"] = copy.copy(stimuli_params["number_of_classifier_assessment_presentations"])
+			stimuli_params["number_of_eval_presentations"] = copy.copy(stimuli_params["number_of_classifier_assessment_presentations"])
+			classifier_alternating_spike_IDs, classifier_alternating_spike_times, spike_pair_differences = generate_spikes_fixed_pairs(stimuli_params, assembly_IDs,
+			    relative_times_vertical, relative_times_horizontal, seed_iter)
+			
+			plot_input_raster(stimuli_params, assembly_IDs, classifier_alternating_spike_IDs, classifier_alternating_spike_times,
+				neuron_drift_coefs_dic, seed_iter, eval_bool=False, input_name="classifier_alternating_post_train")
 
+			# TRAIN the network on spatiotemporally structured inputs
+			run_params = {"weight_file" : ("weights/" + str(seed_iter) + "/during_spikepair_training"
+										   + "_drift_iter_" + str(drift_iter) + "/final"),
+						  "STDP_on_bool" : False,
+						  "input_stim" : [classifier_alternating_spike_IDs, classifier_alternating_spike_times],
+				  		  "output_dir" : "/spikepair_trained_alternating_inputs_classifier" + "_drift_iter_" + str(drift_iter)
+						  }
+			run_simulation.main_run(stimuli_params, network_params, run_params, seed_iter,
+				spike_pair_differences)
+			stimuli_params["number_of_train_presentations"] = copy.copy(number_of_presents_backup)
+			stimuli_params["number_of_eval_presentations"] = copy.copy(number_of_presents_backup_two)
 
-
-
-
-			# # GENERATE the NONSENSE stimuli inputs
-		 #    # eval_bool determines how translations are sampled (i.e. in blocks as opposed to in a random order)
-			# print("\nGenerating spatio-temporal patterns for *nonsense stimulus evaluation*")
-			# nonsense_eval_spike_IDs, nonsense_eval_spike_times, spike_pair_differences = generate_spikes_fixed_pairs(stimuli_params, assembly_IDs,
-			#     relative_times_vertical, relative_times_horizontal, seed_iter, eval_bool=True, nonsense_cross_bool=True)
-
-			# plot_input_raster(stimuli_params, assembly_IDs, nonsense_eval_spike_IDs, nonsense_eval_spike_times,
-			# 	neuron_drift_coefs_dic, seed_iter, eval_bool=True, input_name="nonsense_evaluation_spikepairs")
-
-
-			# # EVALUATE the spatio-temporally trained network on the nonsense spatio-temporal inputs
-			# run_params = {"weight_file" : ("weights/" + str(seed_iter) + "/during_spikepair_training"
-			# 							   + "_drift_iter_" + str(drift_iter) + "/final"),
-			# 			  "STDP_on_bool" : False,
-			# 			  "input_stim" : [nonsense_eval_spike_IDs, nonsense_eval_spike_times],
-			# 	  		  "output_dir" : "/spikepair_trained_spikepair_inputs_nonsense" + "_drift_iter_" + str(drift_iter)
-			# 			  }
-			# run_simulation.main_run(stimuli_params, network_params, run_params, seed_iter,
-			# 	spike_pair_differences)

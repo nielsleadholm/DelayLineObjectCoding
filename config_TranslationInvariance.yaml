@@ -4,12 +4,15 @@
   number_of_train_presentations: 1000  # Number of presentations of each stimulus for training
   number_of_eval_presentations: 15   # As above, but when evaluating the network outside of STDP; if appropriate,
   # equivalent duration of Poisson inputs is given
-  drift_coef_list: [0]  # [0, 16, 32] Upper limit (ms) of the uniform distribution used for sampling the drift
+  number_of_classifier_assessment_presentations: 30  # When evaluating the linear classifier, present the input
+  # many times to make sure there is a reasonable measure of the classifier's accuracy; note the analyse_sim_results
+  # code is *not* designed to analyse results from such presentations; thus such data should only be used for 
+  # evaluating the linear classifier
+  drift_coef_list: [32]  # [0, 16, 32] Upper limit (ms) of the uniform distribution used for sampling the drift
   # coefficients corresponding to the neurons
   num_intervals_for_weight_saving: 5  # Number of intervals at which to perform weight saving and assess firing rates
   # number_of_train_presentations should be divisible by this number
-  num_seeds: 1  # Number of random seeds to simulate over 
-  poisson_input_rate: 2.85  # Desired rate when using a Poisson input
+  seeds_list: [0]  # Number of random seeds to simulate over 
   input_layer_size: 20
   output_layer_size: 20
   duration_of_presentations: 350 #350 milliseconds
@@ -44,8 +47,8 @@
   wmax_search_vals: [0.1,4.0]  # If specified (i.e. not None), ignore "wmax", instead performing
   # a binary search for a wmax value that optimizes the information theory in the network
   wmax: 1.7  # 1.7 for stellate cells, 1.8 for pyramidal
-  Apre: 0.04  # 0.02 in S75ng et al 2000; when using a tau pre/post of 10ms (rather than 20ms
-  # in Song et al, increased to 0.04 to ensure similar effect on membrane potential
+  Apre: 0.04  # 0.02 in Song et al 2000; when using a tau pre/post of 10ms (rather than 20ms
+  # in Song et al), increased to 0.04 to ensure similar pace of learning
   Apost_scaling: 2.0 #2.00  # Scaling in Masquelier 2009 of 0.85; 1.05 in Song et al 2000
   taupre: 10  # ms of time constant for STDP : 16.8 and 33.7 from Bi and Poo 2001
   taupost: 10

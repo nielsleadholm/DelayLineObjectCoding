@@ -32,9 +32,19 @@ def input_drive_visualization(input_spike_monitor, output_spike_monitor, fig_tit
 	xlim(0,2000)
 	ylabel('IDs')
 	title(fig_title)
-	savefig("figures/" + fname + ".png")
+	savefig("figures/" + fname + "_sim_beginning.png")
 	clf()
 
+	end_of_sim = np.amax(input_spike_monitor.t)*1000
+	plot(input_spike_monitor.t/ms, input_spike_monitor.i, '.k', marker='x')
+	plot(output_spike_monitor.t/ms, output_spike_monitor.i, 'red', alpha=0.5,
+			marker='.', linewidth=0)
+	xlabel('Time (ms)')
+	xlim(max(0,end_of_sim-1000),end_of_sim)
+	ylabel('IDs')
+	title(fig_title)
+	savefig("figures/" + fname + "_sim_end.png")
+	clf()
 
 def visualise_histo(array_vals, variable_name, fig_title, fname, num_bins=20):
 
@@ -447,10 +457,11 @@ def main_run(stimuli_params, network_params, run_params, seed_iter, spike_pair_d
 			 				   * stimuli_params['duration_of_presentations']
 			 				   * len(stimuli_params['stimuli_names']))
 
-	print("Simulation duration (sec) : " + str(simulation_duration/1000))
 
 	print("Run parameters:")
 	pprint.pprint(run_params, depth=1)
+
+	print("\nSimulation duration : " + str(simulation_duration))
 
 
 
