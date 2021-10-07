@@ -75,7 +75,7 @@ def visualise_violins_over_epochs(list_of_results, epoch_markers, fig_title, fna
 
 def visualise_cellular_property(variable_monitor, variable_name, spike_monitor,
 								neuron_IDs, fig_title, fname, y_limits=None,
-								x_limits=None, threshold=None):
+								x_limits=None, threshold=None, save_raw_bool=False):
 	'''
 	Visualize the change of a cellular property such as membrane voltage 
 	over time, for a series of specified neurons
@@ -113,8 +113,9 @@ def visualise_cellular_property(variable_monitor, variable_name, spike_monitor,
 	clf()
 
 	# Save raw data in binary format to take up less disk space
-	np.save("raw_data/" + fname + "_times.txt", variable_monitor.t/ms)
-	np.save("raw_data/" + fname + "_values.txt", getattr(variable_monitor, variable_name))
+	if save_raw_bool:
+		np.save("raw_data/" + fname + "_times", variable_monitor.t/ms)
+		np.save("raw_data/" + fname + "_values", getattr(variable_monitor, variable_name))
 
 
 def visualise_cellular_distribution(variable_monitor, variable_name,
@@ -147,7 +148,8 @@ def visualise_cellular_distribution(variable_monitor, variable_name,
 	clf()
 
 
-def array_of_cellular_properties(variable_monitor, spike_monitor, neuron_IDs, title, fname, v_threshold):
+def array_of_cellular_properties(variable_monitor, spike_monitor, neuron_IDs,
+		title, fname, v_threshold, save_raw_bool=False):
 	'''
 	Combine visualization of a variety of cellular properties
 	'''
@@ -157,16 +159,16 @@ def array_of_cellular_properties(variable_monitor, spike_monitor, neuron_IDs, ti
 
 		visualise_cellular_property(variable_monitor, "g_e",
 			spike_monitor, neuron_IDs, fig_title="Sample of " + title,
-			fname=fname + "/g_e_" + title)
+			fname=fname + "/g_e_" + title, save_raw_bool=save_raw_bool)
 
 		visualise_cellular_property(variable_monitor, "v",
 			spike_monitor, neuron_IDs, fig_title="Sample of " + title,
 			fname=fname + "/v_" + title, y_limits=[-0.075,-0.05],
-			threshold=v_threshold)
+			threshold=v_threshold, save_raw_bool=save_raw_bool)
 
 		visualise_cellular_property(variable_monitor, "g_i",
 			spike_monitor, neuron_IDs, fig_title="Sample of " + title,
-			fname=fname + "/g_i_" + title)
+			fname=fname + "/g_i_" + title, save_raw_bool=save_raw_bool)
 
 
 
@@ -771,15 +773,25 @@ def main_run(stimuli_params, network_params, run_params, seed_iter, spike_pair_d
 
 		assert elapsed_time==simulation_duration, "Cumulative run-time should equal total defined run-time"
 
-		visualise_violins_over_epochs(learning_fr_list, epoch_markers,
-			fig_title="violins_FR_over_learning",
-			fname=str(seed_iter) + run_params["output_dir"],
-			y_label="Firing Rate (Hz)")
+		np.savetxt("weights/" + str(seed_iter) + run_params["output_dir"] + "/weights_over_epochs_vals.txt",
+			   	   learning_weights_list)
+
+		np.savetxt("raw_data/" + str(seed_iter) + run_params["output_dir"] + "/rates_over_epochs_vals.txt",
+			   	   learning_fr_list)
+
+		np.savetxt("raw_data/" + str(seed_iter) + run_params["output_dir"] + "/epoch_markers.txt",
+			   	   epoch_markers)
 
 		visualise_violins_over_epochs(learning_weights_list, epoch_markers,
 			fig_title="violins_weights_over_learning",
 			fname=str(seed_iter) + run_params["output_dir"],
 			y_label="Synapse Weights")
+
+		visualise_violins_over_epochs(learning_fr_list, epoch_markers,
+			fig_title="violins_FR_over_learning",
+			fname=str(seed_iter) + run_params["output_dir"],
+			y_label="Firing Rate (Hz)")
+
 
 	else:
 
@@ -859,22 +871,26 @@ def main_run(stimuli_params, network_params, run_params, seed_iter, spike_pair_d
 		array_of_cellular_properties(output_neurons_vars_M,
 				output_neurons_spikes_M, neuron_IDs=upright_aligned_record_IDs, title="output_layer_upright_aligned",
 				fname=str(seed_iter) + run_params["output_dir"],
-				v_threshold=(V_th/mV)/1000)
+				v_threshold=(V_th/mV)/1000,
+				save_raw_bool=network_params["save_raw_bool"])
 
 		array_of_cellular_properties(output_neurons_vars_M,
 				output_neurons_spikes_M, neuron_IDs=inverted_aligned_record_IDs, title="output_layer_inverted_aligned",
 				fname=str(seed_iter) + run_params["output_dir"],
-				v_threshold=(V_th/mV)/1000)
+				v_threshold=(V_th/mV)/1000,
+				save_raw_bool=network_params["save_raw_bool"])
 
 		array_of_cellular_properties(output_neurons_vars_M,
 				output_neurons_spikes_M, neuron_IDs=both_aligned_record_IDs, title="output_layer_both_aligned",
 				fname=str(seed_iter) + run_params["output_dir"],
-				v_threshold=(V_th/mV)/1000)
+				v_threshold=(V_th/mV)/1000,
+				save_raw_bool=network_params["save_raw_bool"])
 
 		array_of_cellular_properties(output_neurons_vars_M,
 				output_neurons_spikes_M, neuron_IDs=nonaligned_record_IDs, title="output_layer_nonaligned",
 				fname=str(seed_iter) + run_params["output_dir"],
-				v_threshold=(V_th/mV)/1000)
+				v_threshold=(V_th/mV)/1000,
+				save_raw_bool=network_params["save_raw_bool"])
 
 
 		# == Distributions of cellular variables ==
