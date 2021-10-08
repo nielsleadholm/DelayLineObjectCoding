@@ -1,7 +1,13 @@
+from brian2 import *
+import copy
+import json
 import numpy as np
 import os
 import yaml
 import matplotlib.pyplot as plt
+import pandas as pd
+import seaborn as sns
+import scipy
 
 def exclude_indices(input_array, excluding_indices):
 	
@@ -455,6 +461,7 @@ def UnitTest_FR_information_theory_calculation(params, information_theory_dic):
 
 		return None
 
+
 # Test information theory calculation by analysing idealised data
 def UnitTest_binary_information_theory_calculation(params, information_theory_data, layer):
 		temp_information_theory_data = np.asarray(information_theory_data) #Copy of information theory data
@@ -496,56 +503,6 @@ def UnitTest_binary_information_theory_calculation(params, information_theory_da
 
 		return None
 
-def weights_across_time(stimuli_params, network_params, data_set, seed_iter, drift_iter):
-
-	simulation_duration = (stimuli_params['number_of_train_presentations']
-			 				   * stimuli_params['duration_of_presentations']
-			 				   * len(stimuli_params['stimuli_names']))
-
-	delays = np.loadtxt("raw_data/" + str(seed_iter) + "/" + data_set + "_drift_iter_"
-						+ str(drift_iter) + "/ff_delays.txt")
-	current_weights = np.loadtxt("weights/" + str(seed_iter) + "/" + data_set + "_drift_iter_" + str(drift_iter) + "/weights"
-				   + str(stimuli_params["intervals_for_weight_saving"]/1000) + "_seconds_of_sim.txt")
-
-	# Plot initial weights vs delays
-	plt.scatter(delays, current_weights, color='red', alpha=0.3)
-
-	plt.ylabel("Weight values")
-	plt.xlabel("Delays (ms)")
-	plt.ylim(-0.1, network_params["wmax"]+0.1)
-	plt.title("Weights vs Delays Before Learning")
-	plt.savefig("analysis_results/weights_vs_delays_before_learning" + data_set, dpi=300)
-	plt.clf()
-
-
-	for learning_period in range(0, simulation_duration, stimuli_params["intervals_for_weight_saving"]):
-		current_weights = np.loadtxt("weights/" + str(seed_iter) + "/" + data_set + "_drift_iter_" + str(drift_iter) + "/weights"
-				   + str((learning_period+stimuli_params["intervals_for_weight_saving"])/1000) + "_seconds_of_sim.txt")
-
-		# print(np.shape(current_weights))
-		# print(learning_period)
-		# print(current_weights[0:5])
-		# exit()
-
-		plt.scatter(np.ones(len(current_weights))*learning_period+np.random.normal(0,100,len(current_weights)), current_weights, alpha=0.2)
-		plt.scatter(learning_period, np.mean(current_weights), s=60, marker='x', color='k')
-
-	plt.ylabel("Weight values")
-	plt.xlabel("Time (ms)")
-	plt.ylim(-0.1, network_params["wmax"]+0.1)
-	plt.title("Weights across learning intervals")
-	plt.savefig("analysis_results/weights_over_time_" + data_set, dpi=300)
-	plt.clf()
-
-	# Plot the final weights as a function of delay
-	plt.scatter(delays, current_weights, color='dodgerblue', alpha=0.3)
-
-	plt.ylabel("Weight values")
-	plt.xlabel("Delays (ms)")
-	plt.ylim(-0.1, network_params["wmax"]+0.1)
-	plt.title("Weights vs Delays After Learning")
-	plt.savefig("analysis_results/weights_vs_delays_after_learning" + data_set, dpi=300)
-	plt.clf()
 
 def perform_primary_analyses(stimuli_params, layer):
 
@@ -570,7 +527,7 @@ def perform_primary_analyses(stimuli_params, layer):
 		information_theory_binary_dic_1st[data_set] = []
 		information_theory_binary_dic_2nd[data_set] = []
 
-		for seed_iter in range(1):
+		for seed_iter in stimuli_params["seeds_list"]:
 
 			for drift_iter in stimuli_params["drift_coef_list"]:
 
@@ -600,6 +557,16 @@ def perform_primary_analyses(stimuli_params, layer):
 		plt.savefig("analysis_results/hist_info_1_binary_" + layer + "_" + key + ".png", dpi=300)
 		plt.clf()
 
+		# Display indices associated with the most information
+		print("\nOn 1st object for : " + key)
+		ind = np.argpartition(val[0], -5)[-5:]
+		top_vals = val[0][ind]
+		sorting_top = np.argsort(val[0][ind])
+		print("Top neuron IDs:")
+		print(np.flip(ind[sorting_top]))
+		print("Associated info:")
+		print(np.flip(top_vals[sorting_top]))
+
 		# Ranked information
 		# Sorts the array (ascending) and then reverses the order
 		plt.plot(np.arange(stimuli_params["output_layer_size"]), np.flip(np.sort(val))[0,:],
@@ -622,6 +589,16 @@ def perform_primary_analyses(stimuli_params, layer):
 		plt.title("Information in Binary Activity - 2nd stimulus")
 		plt.savefig("analysis_results/hist_info_2_binary_" + layer + "_" + key + ".png", dpi=300)
 		plt.clf()
+
+		# Display indices associated with the most information
+		print("\nOn 2nd object for : " + key)
+		ind = np.argpartition(val[0], -5)[-5:]
+		top_vals = val[0][ind]
+		sorting_top = np.argsort(val[0][ind])
+		print("Top neuron IDs:")
+		print(np.flip(ind[sorting_top]))
+		print("Associated info:")
+		print(np.flip(top_vals[sorting_top]))
 
 		# Ranked information
 		# Sorts the array (ascending) and then reverses the order
@@ -657,6 +634,405 @@ def perform_primary_analyses(stimuli_params, layer):
 	plt.clf()
 
 
+def dummy_visualise_cellular_properties():
+	'''
+	Basic provisional code to test loading of saved
+	cellular property data such as membrane voltage
+	'''
+
+	# # Test loading of membrane variables
+	# drift_iter = 32
+	# seed_iter = 0
+	# fname = (str(seed_iter) + "/untrained_spikepair_inputs"
+	# 		 + "_drift_iter_" + str(drift_iter) + "/g_e_output_layer_both_aligned")
+	# variable = np.load("raw_data/" + fname + "_values.npy")
+	# times = np.load("raw_data/" + fname + "_times.npy")
+
+
+def weights_across_epochs(stimuli_params, network_params, data_set, seed_iter, drift_iter):
+	'''
+	Visualization of the distribtuion of all weights across epochs
+	'''
+
+
+	initial_weights = np.loadtxt("weights/" + str(seed_iter) + "/rand_weights.txt")
+
+	learning_weights_list = np.loadtxt("weights/" + str(seed_iter) + "/" + data_set + "_drift_iter_"
+						+ str(drift_iter) + "/weights_over_epochs_vals.txt")
+
+
+	learning_weights_list = np.insert(learning_weights_list, 0, initial_weights, axis=0)
+
+	epoch_markers_str = np.loadtxt("raw_data/" + str(seed_iter) + "/" + data_set + "_drift_iter_"
+						+ str(drift_iter) + "/epoch_markers.txt")
+	epoch_markers_str = np.insert(epoch_markers_str, 0, 0)
+
+	epoch_markers_int = list(range(stimuli_params["num_intervals_for_weight_saving"]+1))
+
+	df_weights_across_epochs = pd.DataFrame(np.transpose(learning_weights_list))
+	df_weights_across_epochs = pd.melt(df_weights_across_epochs, var_name="epoch", value_name="weight")
+
+	sns.violinplot(x="epoch", y="weight", data=df_weights_across_epochs,
+				   scale="area", color="dodgerblue", cut=0, inner=None)
+	# see more options at https://seaborn.pydata.org/generated/seaborn.violinplot.html
+	# including options for "inner"
+
+	xlabel("Duration of Training (sec)")
+	xticks(epoch_markers_int, epoch_markers_str)
+	xlim(-0.5)
+	ylabel("Weights")
+	title("Weights across epochs of STDP training")
+	savefig("analysis_results/" + str(seed_iter) + "/violins_weights_across_epochs.png", dpi=300)
+	clf()
+
+
+def weights_across_epochs_by_alignment(stimuli_params, network_params, data_set, seed_iter, drift_iter):
+	'''
+	Distribution of weights across epochs, broken down by whether the input has a delay-line alignment
+	'''
+
+	# Load alignment results
+	with open("raw_data/" + str(seed_iter) + "/" + data_set + "_drift_iter_"
+						+ str(drift_iter) + "/alignment_results.json") as f:
+		alignment_results = json.load(f)
+
+	all_aligned = copy.copy(alignment_results["upright_aligned_weights"])
+	all_aligned.extend(alignment_results["inverted_aligned_weights"])
+	all_aligned.extend(alignment_results["both_aligned_weights"])
+
+	assert ((len(all_aligned) + len(alignment_results["non_aligned_weights"]))
+			== stimuli_params["input_layer_size"]*stimuli_params["output_layer_size"]), "Total number of alignment-checked weight indices should equal total number of weights"
+
+	# Load weights across epochs
+	initial_weights = np.loadtxt("weights/" + str(seed_iter) + "/rand_weights.txt")
+
+	learning_weights_list = np.loadtxt("weights/" + str(seed_iter) + "/" + data_set + "_drift_iter_"
+						+ str(drift_iter) + "/weights_over_epochs_vals.txt")
+
+
+	learning_weights_list = np.insert(learning_weights_list, 0, initial_weights, axis=0)
+
+	epoch_markers_str = np.loadtxt("raw_data/" + str(seed_iter) + "/" + data_set + "_drift_iter_"
+						+ str(drift_iter) + "/epoch_markers.txt")
+	epoch_markers_str = np.insert(epoch_markers_str, 0, 0)
+
+	epoch_markers_int = list(range(stimuli_params["num_intervals_for_weight_saving"]+1))
+
+
+	# Mask the weights for the different conditions
+	learning_weights_list_aligned = learning_weights_list[:,all_aligned]
+	learning_weights_list_nonaligned = learning_weights_list[:,alignment_results["non_aligned_weights"]]
+
+	# Process results
+	df_weights_across_epochs_aligned = pd.DataFrame(np.transpose(learning_weights_list_aligned))
+	df_weights_across_epochs_aligned = pd.melt(df_weights_across_epochs_aligned, var_name="epoch", value_name="weight")
+
+	df_weights_across_epochs_nonaligned = pd.DataFrame(np.transpose(learning_weights_list_nonaligned))
+	df_weights_across_epochs_nonaligned = pd.melt(df_weights_across_epochs_nonaligned, var_name="epoch", value_name="weight")
+
+
+	# Plot aligned results
+	sns.violinplot(x="epoch", y="weight", data=df_weights_across_epochs_aligned,
+				   scale="area", color="dodgerblue", cut=0, inner=None)
+	xlabel("Duration of Training (sec)")
+	xticks(epoch_markers_int, epoch_markers_str)
+	xlim(-0.5)
+	ylabel("Weights")
+	title("Weights across epochs of STDP training - Aligned")
+	savefig("analysis_results/" + str(seed_iter) + "/violins_weights_across_epochs_aligned.png", dpi=300)
+	clf()
+
+	# Plot non-aligned results
+	sns.violinplot(x="epoch", y="weight", data=df_weights_across_epochs_nonaligned,
+				   scale="area", color="crimson", cut=0, inner=None)
+	xlabel("Duration of Training (sec)")
+	xticks(epoch_markers_int, epoch_markers_str)
+	xlim(-0.5)
+	ylabel("Weights")
+	title("Weights across epochs of STDP training - Non-Aligned")
+	savefig("analysis_results/" + str(seed_iter) + "/violins_weights_across_epochs_nonaligned.png", dpi=300)
+	clf()
+
+
+	# For the aligned weights, plot each one before and after training, drawing a line
+	# to make it clear how each particular weight evolved
+	number_of_weights_to_vis = len(all_aligned)
+
+	for current_weight_iter in range(number_of_weights_to_vis):
+
+		plot([0, 1], [learning_weights_list[0, all_aligned[current_weight_iter]],
+					  learning_weights_list[-1, all_aligned[current_weight_iter]]],
+		 	 alpha=0.5)
+	
+	xlabel("Evolution of Individual Weights")
+	xticks([0,1], ["Pre-StDP", "Post-STDP"])
+	ylabel("Weights")
+	title("Tracking Evolution of Specific Weights - Aligned")
+	savefig("analysis_results/" + str(seed_iter) + "/specific_weights_evolution_aligned.png", dpi=300)
+	clf()
+
+	# As above, but for non-aligned weights; NB that typically not all non-aligned weights are visualized,
+	# i.e. instead the same number as there are aligned weights are (in effect randomly) selected
+	for current_weight_iter in range(number_of_weights_to_vis):
+
+		plot([0, 1], [learning_weights_list[0, alignment_results["non_aligned_weights"][current_weight_iter]],
+					  learning_weights_list[-1, alignment_results["non_aligned_weights"][current_weight_iter]]],
+		 	 alpha=0.5)
+	
+	xlabel("Evolution of Individual Weights")
+	xticks([0,1], ["Pre-StDP", "Post-STDP"])
+	ylabel("Weights")
+	title("Tracking Evolution of Specific Weights - Non-Aligned")
+	savefig("analysis_results/" + str(seed_iter) + "/specific_weights_evolution_nonaligned.png", dpi=300)
+	clf()
+
+	# Scatter plot for aligned weights --> weight pre and post STDP
+	# Looking for how much of a benefit there is to starting with an an initially higher weight
+	scatter(learning_weights_list[0, all_aligned],learning_weights_list[-1, all_aligned])
+	xlabel("Initial Weight, Aligned Neurons")
+	ylabel("Final Weight, Aligned Neurons")
+	title("Effect of Initial Weight - Aligned")
+	savefig("analysis_results/" + str(seed_iter) + "/effect_of_initial_weight.png", dpi=300)
+	clf()
+
+
+def strong_delays_across_epochs(stimuli_params, network_params, data_set, seed_iter, drift_iter):
+	'''
+	Visualize the distribution of delay lines associated with strong (wmax/2)
+	weights across the epochs of training
+	'''
+
+	initial_weights = np.loadtxt("weights/" + str(seed_iter) + "/rand_weights.txt")
+
+	delays = np.loadtxt("weights/" + str(seed_iter) + "/rand_delays.txt")
+
+	learning_weights_list = np.loadtxt("weights/" + str(seed_iter) + "/" + data_set + "_drift_iter_"
+						+ str(drift_iter) + "/weights_over_epochs_vals.txt")
+
+
+	learning_weights_list = np.insert(learning_weights_list, 0, initial_weights, axis=0)
+
+
+	strong_delays_list = []
+
+	for epoch_iter in range(len(learning_weights_list)):
+
+		mask = learning_weights_list[epoch_iter] >= network_params["wmax"]/2
+
+		# As arrays associated with strong delays will be of different sizes, pad with NaN values
+		current_delays = np.empty(np.shape(learning_weights_list[epoch_iter]))
+		current_delays[:] = numpy.nan
+
+		current_delays[mask] = delays[mask]
+
+		strong_delays_list.append(current_delays)
+
+
+	epoch_markers_str = np.loadtxt("raw_data/" + str(seed_iter) + "/" + data_set + "_drift_iter_"
+						+ str(drift_iter) + "/epoch_markers.txt")
+	epoch_markers_str = np.insert(epoch_markers_str, 0, 0)
+
+	epoch_markers_int = list(range(stimuli_params["num_intervals_for_weight_saving"]+1))
+
+	df_delays_across_epochs = pd.DataFrame(np.transpose(strong_delays_list))
+	df_delays_across_epochs = pd.melt(df_delays_across_epochs, var_name="epoch", value_name="delay")
+
+	sns.violinplot(x="epoch", y="delay", data=df_delays_across_epochs,
+				   scale="count", color="dodgerblue", cut=0, inner=None)
+	# see more options at https://seaborn.pydata.org/generated/seaborn.violinplot.html
+	# including options for "inner"
+
+	xlabel("Duration of Training (sec)")
+	xticks(epoch_markers_int, epoch_markers_str)
+	xlim(-0.5)
+	ylabel("Delays (ms)")
+	title("Delay with strong weights across epochs of STDP training")
+	savefig("analysis_results/" + str(seed_iter) + "/violins_delays_across_epochs.png", dpi=300)
+	clf()
+
+
+def FR_across_epochs(stimuli_params, network_params, data_set, seed_iter, drift_iter):
+
+	# Load firing rate data, including pre-STDP firing rates
+	initial_FR = np.loadtxt("raw_data/" + str(seed_iter) + "/untrained_alternating_inputs_drift_iter_"
+		+ str(drift_iter) + "/fr_output_layer.txt")
+
+	learning_FR_list = np.loadtxt("raw_data/" + str(seed_iter) + "/" + data_set + "_drift_iter_"
+						+ str(drift_iter) + "/rates_over_epochs_vals.txt")
+
+	learning_FR_list = np.insert(learning_FR_list, 0, initial_FR, axis=0)
+
+	# Load epoch markers
+	epoch_markers_str = np.loadtxt("raw_data/" + str(seed_iter) + "/" + data_set + "_drift_iter_"
+						+ str(drift_iter) + "/epoch_markers.txt")
+	epoch_markers_str = np.insert(epoch_markers_str, 0, 0)
+
+	# Load alignment results; this will enable visualising the change in firing rates
+	# the the correspondence (if any) to a particular type of alignment
+	with open("raw_data/" + str(seed_iter) + "/" + data_set + "_drift_iter_"
+						+ str(drift_iter) + "/alignment_results.json") as f:
+		alignment_results = json.load(f)
+	all_aligned = copy.copy(alignment_results["upright_aligned_indices"])
+	all_aligned.extend(alignment_results["inverted_aligned_indices"])
+
+	alignment_type_results = [all_aligned, alignment_results["both_aligned_indices"], alignment_results["non_aligned_indices"]]
+	alignment_type_labels = ["Single Aligned", "Both Aligned", "None Aligned"]
+	alignment_type_colors = ["dodgerblue", "purple", "crimson"]
+
+	assert ((len(all_aligned) + len(alignment_results["both_aligned_indices"])
+			+ len(alignment_results["non_aligned_indices"])) == stimuli_params["output_layer_size"]), "Aligned indices do not match layer size"
+
+	for epoch_iter in range(len(learning_FR_list)):
+
+		current_fr = learning_FR_list[epoch_iter]
+
+		for current_alignment_iter in range(len(alignment_type_results)):
+
+			mask = alignment_type_results[current_alignment_iter]
+
+			# Only include legend on the first plotting
+			if epoch_iter == 0:
+				labels = alignment_type_labels[current_alignment_iter]
+			else:
+				labels = None
+
+			plt.scatter(np.ones(len(mask))*epoch_markers_str[epoch_iter],
+						current_fr[mask], color=alignment_type_colors[current_alignment_iter],
+						alpha=0.2, label=labels)
+		
+		plt.scatter(epoch_markers_str[epoch_iter], np.mean(current_fr), s=60, marker='x', color='k')
+
+	plt.axhline((1/(stimuli_params["duration_of_presentations"]/1000)) / len(stimuli_params["stimuli_names"]),
+			    label="Ideal Rate",
+			    linestyle='--', alpha=0.5, color='k')
+
+	xlabel("Duration of Training (sec)")
+	xlim(-10)
+	ylabel("Firing Rates (Hz)")
+	legend()
+	title("Firing rates across epochs of STDP training")
+	savefig("analysis_results/" + str(seed_iter) + "/violins_rates_across_epochs.png", dpi=300)
+	clf()
+
+
+def visualize_strong_weights(stimuli_params, network_params, data_set, seed_iter, drift_iter):
+
+	delays = np.loadtxt("weights/" + str(seed_iter) + "/rand_delays.txt")
+
+	initial_weights = np.loadtxt("weights/" + str(seed_iter) + "/rand_weights.txt")
+
+	final_weights = np.loadtxt("weights/" + str(seed_iter) + "/" + data_set + "_drift_iter_"
+						+ str(drift_iter) + "/final_weights.txt")
+
+	num_bins = 6
+
+
+	# Histogram of weights exceeding the threshold of interest
+	mask = initial_weights >= network_params["wmax"]/2
+	hist(np.asarray(delays)[mask], bins=num_bins, alpha=0.5, color="dodgerblue")
+	xlabel("Synapse Delay (ms)")
+	title("Initial Delays with Strong Weight")
+	savefig("analysis_results/strong_weights_initial.png")
+	clf()
+
+	mask = final_weights >= network_params["wmax"]/2
+	hist(np.asarray(delays)[mask], bins=num_bins, alpha=0.5, color="dodgerblue")
+	xlabel("Synapse Delay (ms)")
+	title("Final Delays with Strong Weight")
+	savefig("analysis_results/strong_weights_final.png")
+	clf()
+
+	# Scatterplot showing correlation (if any) between delay and weight
+	scatter(delays, initial_weights, label="Initial", color="crimson", alpha=0.5)
+	scatter(delays, final_weights, label="Final", color="dodgerblue", alpha=0.5)
+	xlabel("Synapse Delay (ms)")
+	ylabel("Weight")
+	title("Weight vs Delay")
+	savefig("analysis_results/delay_vs_weight_scatter.png")
+	clf()
+
+
+	# Use Spearman as data generally not very normally distributed
+	coef, p_val = scipy.stats.spearmanr(delays, initial_weights)
+	print("\nCorrelation before STDP")
+	print("Coef : " + str(coef))
+	print("p-value : " + str(p_val))
+
+	coef, p_val = scipy.stats.spearmanr(delays, final_weights)
+	print("\nCorrelation AFTER STDP")
+	print("Coef : " + str(coef))
+	print("p-value : " + str(p_val))
+
+
+def specific_weights_across_epochs(stimuli_params, network_params, data_set, seed_iter, drift_iter):
+	'''
+	Visualize the change in aligned weights across epochs, specifically looking at those associated
+	with aligned inputs/delays, vs. those that are not
+	'''
+
+
+	# Load firing rate data, including pre-STDP firing rates
+	initial_FR = np.loadtxt("raw_data/" + str(seed_iter) + "/untrained_alternating_inputs_drift_iter_"
+		+ str(drift_iter) + "/fr_output_layer.txt")
+
+	learning_FR_list = np.loadtxt("raw_data/" + str(seed_iter) + "/" + data_set + "_drift_iter_"
+						+ str(drift_iter) + "/rates_over_epochs_vals.txt")
+
+	learning_FR_list = np.insert(learning_FR_list, 0, initial_FR, axis=0)
+
+	# Load epoch markers
+	epoch_markers_str = np.loadtxt("raw_data/" + str(seed_iter) + "/" + data_set + "_drift_iter_"
+						+ str(drift_iter) + "/epoch_markers.txt")
+	epoch_markers_str = np.insert(epoch_markers_str, 0, 0)
+
+	# Load alignment results; this will enable visualising the change in firing rates
+	# the the correspondence (if any) to a particular type of alignment
+	with open("raw_data/" + str(seed_iter) + "/" + data_set + "_drift_iter_"
+						+ str(drift_iter) + "/alignment_results.json") as f:
+		alignment_results = json.load(f)
+	all_aligned = copy.copy(alignment_results["upright_aligned_indices"])
+	all_aligned.extend(alignment_results["inverted_aligned_indices"])
+
+	alignment_type_results = [all_aligned, alignment_results["both_aligned_indices"], alignment_results["non_aligned_indices"]]
+	alignment_type_labels = ["Single Aligned", "Both Aligned", "None Aligned"]
+	alignment_type_colors = ["dodgerblue", "purple", "crimson"]
+
+	assert ((len(all_aligned) + len(alignment_results["both_aligned_indices"])
+			+ len(alignment_results["non_aligned_indices"])) == stimuli_params["output_layer_size"]), "Aligned indices do not match layer size"
+
+	for epoch_iter in range(len(learning_FR_list)):
+
+		current_fr = learning_FR_list[epoch_iter]
+
+		for current_alignment_iter in range(len(alignment_type_results)):
+
+			mask = alignment_type_results[current_alignment_iter]
+
+			# Only include legend on the first plotting
+			if epoch_iter == 0:
+				labels = alignment_type_labels[current_alignment_iter]
+			else:
+				labels = None
+
+			plt.scatter(np.ones(len(mask))*epoch_markers_str[epoch_iter],
+						current_fr[mask], color=alignment_type_colors[current_alignment_iter],
+						alpha=0.2, label=labels)
+		
+		plt.scatter(epoch_markers_str[epoch_iter], np.mean(current_fr), s=60, marker='x', color='k')
+
+	plt.axhline((1/(stimuli_params["duration_of_presentations"]/1000)) / len(stimuli_params["stimuli_names"]),
+			    label="Ideal Rate",
+			    linestyle='--', alpha=0.5, color='k')
+
+	xlabel("Duration of Training (sec)")
+	xlim(-10)
+	ylabel("Firing Rates (Hz)")
+	legend()
+	title("Firing rates across epochs of STDP training")
+	savefig("analysis_results/" + str(seed_iter) + "/violins_rates_across_epochs.png", dpi=300)
+	clf()
+
+
 if __name__ == '__main__':
 
 	if os.path.exists("analysis_results") == 0:
@@ -674,22 +1050,32 @@ if __name__ == '__main__':
 
 	layers_to_analyse = ["output"] # "input"
 
-	for layer in layers_to_analyse:
+	# for layer in layers_to_analyse:
 
-		perform_primary_analyses(stimuli_params, layer)
-
-
-	# List of training conditions to look at (excludes data collected during evaluation)
-	# - change of weight distributions --> double check that the 'final' weights are equivalent to the final time point weights
-	# - change of firing rates --> NB this can be done by simply binning the spiking activity collected at the end of training,
-	# binning it as desired 
+	# 	perform_primary_analyses(stimuli_params, layer)
 
 
-	# data_set = "during_spikepair_training"
-	# for seed_iter in range(1):
+	# Analyses/plotting specific to during training
+	data_set = "during_spikepair_training"
 
-	# 	for drift_iter in stimuli_params["drift_coef_list"]:
+	for seed_iter in stimuli_params["seeds_list"]:
 
-	# 		weights_across_time(stimuli_params, network_params, data_set, seed_iter, drift_iter)
+		if os.path.exists("analysis_results/" + str(seed_iter)) == 0:
+			try:
+				os.mkdir("analysis_results/" + str(seed_iter))
+			except OSError:
+				pass
+
+		for drift_iter in stimuli_params["drift_coef_list"]:
+
+			weights_across_epochs_by_alignment(stimuli_params, network_params, data_set, seed_iter, drift_iter)
+
+			visualize_strong_weights(stimuli_params, network_params, data_set, seed_iter, drift_iter)
+
+			FR_across_epochs(stimuli_params, network_params, data_set, seed_iter, drift_iter)
+
+			weights_across_epochs(stimuli_params, network_params, data_set, seed_iter, drift_iter)
+
+			strong_delays_across_epochs(stimuli_params, network_params, data_set, seed_iter, drift_iter)
 
 
