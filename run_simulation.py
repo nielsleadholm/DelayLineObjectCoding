@@ -31,7 +31,7 @@ def input_drive_visualization(input_spike_monitor, output_spike_monitor, fig_tit
 	xlabel('Time (ms)')
 	xlim(0,2000)
 	ylabel('IDs')
-	title(fig_title)
+	title(fig_title + " : Beggining")
 	savefig("figures/" + fname + "_sim_beginning.png")
 	clf()
 
@@ -42,7 +42,7 @@ def input_drive_visualization(input_spike_monitor, output_spike_monitor, fig_tit
 	xlabel('Time (ms)')
 	xlim(max(0,end_of_sim-1000),end_of_sim)
 	ylabel('IDs')
-	title(fig_title)
+	title(fig_title + " : End of Sim")
 	savefig("figures/" + fname + "_sim_end.png")
 	clf()
 
@@ -171,11 +171,10 @@ def array_of_cellular_properties(variable_monitor, spike_monitor, neuron_IDs,
 			fname=fname + "/g_i_" + title, save_raw_bool=save_raw_bool)
 
 
-
 def basic_visualise_connectivity(S, fname):
 	'''
 	Basic visualization code for connectivity, e.g. lateral inhibitory
-	connections (where relevant)
+	connections
 	'''
 	Ns = len(S.source)
 	Nt = len(S.target)
@@ -205,21 +204,15 @@ def visualise_connectivity(S, fname, spike_pair_differences,
 	'''
 	More advanced visualization code intended for feed-forward 
 	excitatory synapses; also checks for e.g. delay-line alignments
+	which can be used to assist later visualizations
 	'''
 	Ns = len(S.source)
 	Nt = len(S.target)
 	figure(figsize=(10, 4))
 	subplot(111)
 	yvals = arange(Ns)
-	# print(arange(Ns))
 	color_list = ["crimson", "gold", "dodgerblue", "k", "darkmagenta",
 		"forestgreen", "darkorange", "aqua", "hotpink", "greenyellow"]
-	# print(yvals)
-	#exit()
-	# print(zip(S.i, S.j))
-	# print(S.i)
-	# print(S.j)
-	# exit()
 
 	alignment_results = {
 	# Track the post-synaptic neurons associated with different alignments
@@ -234,10 +227,8 @@ def visualise_connectivity(S, fname, spike_pair_differences,
 	"non_aligned_weights":[]
 	}
 
-
-
 	for jj in range(Nt):
-	# Create a new plot for each post-synaptic neuron
+	# Create a new plot for each *post*-synaptic neuron
 
 		spike_pair_delays_dic = {}  # Track the delay lines associated with each pair of neurons
 		spike_pair_indices_dic = {}  # Track the connection indices associated with each pair of neurons
@@ -247,21 +238,12 @@ def visualise_connectivity(S, fname, spike_pair_differences,
 
 		for ii in range(Ns):
 
-			# print("\nii")
-			# print(ii)
-			# print("Post neuron: " + str(jj))
-			# print(ii*Ns+jj)
 			delay_temp = round(S.delay[ii*Ns+jj]/ms,2)
-
-			# print("Delay temp")
-			# print(delay_temp)
 
 			# Track which spike-pair is currently being visualized
 			spike_pair_iter = int(ii%(Ns/2))
 
-			# print("Spike pair iter and dic")
-			# print(spike_pair_iter)
-			# print(spike_pair_delays_dic)
+			# Create the lists tracking delay lines and indices
 			try:
 				spike_pair_delays_dic[spike_pair_iter].append(delay_temp)
 				spike_pair_indices_dic[spike_pair_iter].append(ii*Ns+jj)
@@ -270,46 +252,18 @@ def visualise_connectivity(S, fname, spike_pair_differences,
 				spike_pair_delays_dic[spike_pair_iter] = [delay_temp]
 				spike_pair_indices_dic[spike_pair_iter] = [ii*Ns+jj]
 
-			# if len(spike_pair_delays_dic[spike_pair_iter]) == 1:
-			# 	spike_pair_delays_dic[spike_pair_delays_dic].append(delay_temp)
-
-			# else:
-			# 	# Initialize the list tracking the delay values associated
-			# 	# with each spike pair
-			# 	spike_pair_delays_dic[spike_pair_iter] = [delay_temp]
-
-
 			# After both values of the spike pair delays have been
 			# found, determine the relative differences, and compare them
 			# to those associated with the input
 			if len(spike_pair_delays_dic[spike_pair_iter]) == 2:
-				# NB we compare for a delay/input match to within 1 ms at the minimum
+				# NB we compare for a delay/input match to within 1 ms at the minimum, due to rounding
 				# Also note that we take the difference in the opposite order from spike_pair_differences,
 				# as an alignment at the post-synaptic neuron implies that the delays are making up for 
 				# any difference in pre-synaptic firing
 				delay_difference = round(spike_pair_delays_dic[spike_pair_iter][0] - spike_pair_delays_dic[spike_pair_iter][1],0)
-				# print("Delay difference:")
-				# print(delay_difference)
 
 				upright_t_diff = round(spike_pair_differences["t"][spike_pair_iter],0)
 				inverted_t_diff = round(spike_pair_differences["inverted_t"][spike_pair_iter],0)
-
-
-				# print("Comparison spike time differences for t and inverted t")
-				# print(upright_t_diff)
-				# print(inverted_t_diff)
-
-				# For t stimulus; NB that the spike_pair_differences are also indexed by the
-				# particular spike pair of interest
-
-				# print("\nDelay difference:")
-				# print(delay_difference)
-				# print("Upright range:")
-				# print(upright_t_diff-integration_window)
-				# print(upright_t_diff+integration_window)
-				# print("Inverted range:")
-				# print(inverted_t_diff-integration_window)
-				# print(inverted_t_diff+integration_window)
 
 				# With a large integration window, may align with both inputs
 				if (((delay_difference >= upright_t_diff-integration_window)
@@ -323,10 +277,9 @@ def visualise_connectivity(S, fname, spike_pair_differences,
 				elif ((delay_difference >= upright_t_diff-integration_window)
 					and (delay_difference <= upright_t_diff+integration_window)):
 
-					# print("Alignment with T stimulus")
 					current_linestyle = "dashed"
-					# Keep track of neurons that align with both stimuli
-					if file_append == "_BOTH_alignment":
+					# Keep track of neurons that align with both stimuli, i.e. already align with others
+					if file_append == "_BOTH_alignment": 
 						alignment_results["both_aligned_weights"].extend(spike_pair_indices_dic[spike_pair_iter])
 					elif file_append == "_invert_t_alignment":
 						file_append = "_BOTH_alignment"
@@ -338,7 +291,6 @@ def visualise_connectivity(S, fname, spike_pair_differences,
 				elif ((delay_difference >= inverted_t_diff-integration_window)
 					and (delay_difference <= inverted_t_diff+integration_window)):
 
-					# print("Alignment with inverted t")
 					current_linestyle = "dotted"
 					if file_append == "_BOTH_alignment":
 						alignment_results["both_aligned_weights"].extend(spike_pair_indices_dic[spike_pair_iter])
@@ -352,35 +304,21 @@ def visualise_connectivity(S, fname, spike_pair_differences,
 				else:
 					current_linestyle = "-"
 					alignment_results["non_aligned_weights"].extend(spike_pair_indices_dic[spike_pair_iter])
-				# 	legend_append = ''
-
-					# if file_append == '':
-					# 	pass
-
 
 			else:
 				current_linestyle = "-"
-				# file_append = ''
-				# legend_append = ''
 
-			# if delay_temp == 1:
-			# 	current_linestyle = "dashed"
-			# elif delay_temp == 9:
-			# 	current_linestyle = "dotted"
-			# else:
-			# 	current_linestyle = "-"
-
+			# When desired, line thickness determined by
+			# weight rather than delay
 			if plot_weights_bool:
 				width_determinent = round(S.w[ii*Ns+jj],2)
 			else:
 				width_determinent = delay_temp
 
-			plot([0, 1], [ii, jj], linestyle=current_linestyle, linewidth=0.1+width_determinent,
+			plot([0, 1], [ii, jj], linestyle=current_linestyle,
+				 linewidth=0.1+width_determinent,
 				 alpha=0.5, label=str(width_determinent),
 				 color=color_list[spike_pair_iter])
-
-		# print("append status")
-		# print(file_append)
 
 		# Determine the status of the neuron's input alignments
 		if file_append == "_upright_t_alignment":
@@ -395,14 +333,6 @@ def visualise_connectivity(S, fname, spike_pair_differences,
 		else:
 			alignment_results["non_aligned_indices"].append(jj)
 
-
-		# print("indices")
-		# print(aligned_indices)
-		# print(non_aligned_indices)
-
-		# exit()
-
-
 		plot(zeros(Ns), yvals, 'ok', ms=10)
 		plot(1, jj, 'ok', ms=10)
 		xticks([0, 1], ['Source', 'Target'])
@@ -410,19 +340,14 @@ def visualise_connectivity(S, fname, spike_pair_differences,
 		xlim(-0.1, 1.1)
 		ylim(-1, max(Ns, Nt))
 		legend()
-		# subplot(122)
-		# plot(S.i, S.j, 'ok', alpha=0.05)
-		# xlim(-1, Ns)
-		# ylim(-1, Nt)
-		# xlabel('Source neuron index')
-		# ylabel('Target neuron index')
+
 		if plot_weights_bool:
 			savefig("figures/" + fname + "_weights_post_index_" + str(jj) + file_append + ".png", dpi=300)
 		else:
 			savefig("figures/" + fname + "_delays_post_index_" + str(jj) + file_append + ".png", dpi=300)
 		clf()
-		#exit()
 
+	# Save final alignment results
 	alignment_results["num_single_aligned"] = (len(alignment_results["upright_aligned_indices"])
 		  		+ len(alignment_results["inverted_aligned_indices"]))
 	alignment_results["num_both_aligned"] = len(alignment_results["both_aligned_indices"])
@@ -437,7 +362,7 @@ def visualise_connectivity(S, fname, spike_pair_differences,
 
 
 def main_run(stimuli_params, network_params, run_params, seed_iter, spike_pair_differences,
-			 drift_name='', initialize_weights_bool=False):
+			 save_dir, initialize_weights_bool=False):
 
 	# =============================================================================
 	# INITIAL SETUP       
@@ -466,7 +391,6 @@ def main_run(stimuli_params, network_params, run_params, seed_iter, spike_pair_d
 	print("\nSimulation duration : " + str(simulation_duration))
 
 
-
 	# =============================================================================
 	# NEURON GROUPS       
 	# =============================================================================
@@ -487,7 +411,6 @@ def main_run(stimuli_params, network_params, run_params, seed_iter, spike_pair_d
 	# NB that fast spiking cells were associated with stellate cells in McCormick 1985, a common
 	# receiving neuron in L4 
 
-	#** stellate cell parameters **
 	E_l = -81.6*mV         # v_rest **
 	g_l = 18*nS            # leak conductance 18**
 	E_e = 0*mV          # excitatory synaptic reversal potential **
@@ -524,7 +447,7 @@ def main_run(stimuli_params, network_params, run_params, seed_iter, spike_pair_d
 	assert output_neurons.g_e[0]==0, "Before initialization, conductance should be 0"
 	output_neurons.v = 'rand()*(V_r-E_l)+E_l'  # random initial membrane potentials
 	output_neurons.g_e = 'rand()*g_init'        # random initial excitatory conductances
-	output_neurons.g_i = 'rand()*g_init'    # random initial inhibitory conductances; 0 for inhibitory neurons
+	output_neurons.g_i = 'rand()*g_init'    # random initial inhibitory conductances
 
 	background_w = network_params["background_weight"] # background weights; not plastic
 
@@ -545,7 +468,7 @@ def main_run(stimuli_params, network_params, run_params, seed_iter, spike_pair_d
 			threshold='v > V_th', reset='v = V_r', refractory='tau_r', method='euler')
 
 	# Set the initial values
-	inhibitory_neurons.v = 'E_l'  # random initial membrane potentials
+	inhibitory_neurons.v = 'E_l'  # initial membrane potentials
 	inhibitory_neurons.g_e = 'rand()*g_init'        # random initial excitatory conductances
 	inhibitory_neurons.g_i = 0    # 0 for inhibitory neurons
 
@@ -554,7 +477,6 @@ def main_run(stimuli_params, network_params, run_params, seed_iter, spike_pair_d
 							network_params["background_layer_width"],
 							network_params["background_base_rate"]*Hz,
 							weight="rand()*background_w*g_l")
-
 
 
 	# =============================================================================
@@ -587,20 +509,20 @@ def main_run(stimuli_params, network_params, run_params, seed_iter, spike_pair_d
 
 	# Define feed-forward connections, which have STDP learning
 	S_feedforward = Synapses(input_neurons, output_neurons,
-	             '''
-	             w : 1
-	             dapre/dt = -apre/taupre : 1 (event-driven)
-	             dapost/dt = -apost/taupost : 1 (event-driven)
-	             ''',
-	             on_pre='''
-	             g_e_post += scaling_constant*w
-	             apre += Apre
-	             w = clip(w+apost, 0, wmax)
-	             ''',
-	             on_post='''
-	             apost += Apost
-	             w = clip(w+apre, 0, wmax)
-	             ''')
+							'''
+							w : 1
+							dapre/dt = -apre/taupre : 1 (event-driven)
+							dapost/dt = -apost/taupost : 1 (event-driven)
+							''',
+							on_pre='''
+							g_e_post += scaling_constant*w
+							apre += Apre
+							w = clip(w+apost, 0, wmax)
+							''',
+							on_post='''
+							apost += Apost
+							w = clip(w+apre, 0, wmax)
+							''')
 
 	S_feedforward.connect(p=network_params["primary_connection_prob"])
 
@@ -608,7 +530,7 @@ def main_run(stimuli_params, network_params, run_params, seed_iter, spike_pair_d
 
 	# Distribution of delays
 	delay_upper = network_params["delay_upper"]
-	small_timestep = 0.000001 #Helps avoid numerical issues
+	small_timestep = 0.000001 # Helps avoid numerical issues
 
 	delays_list = []
 
@@ -617,19 +539,17 @@ def main_run(stimuli_params, network_params, run_params, seed_iter, spike_pair_d
 	if initialize_weights_bool:
 		S_feedforward.w = 'rand()*(wmax-wmax/2)+wmax/2' # 'wmax'
 
-		np.savetxt("weights/" + str(seed_iter) + "/rand_weights.txt", S_feedforward.w)
+		np.savetxt("weights/" + save_dir + "/rand_weights.txt", S_feedforward.w)
 
 		#print("\n===TEMPORARILY USING DISCRETE RANDOM DELAYS ** SKIPPING 1ms INTERVALS ** ===")
 		
 		for ii in range(len(S_feedforward.w)):
-			#Discrete delay np.random.choice((0, delay_upper)) + np.random.uniform(0,0.1)
 			setting_val = np.random.uniform(0, delay_upper) + small_timestep
 			#setting_val = np.random.choice(range(0, delay_upper+1, 2)) + small_timestep
 			delays_list.append(setting_val)
 
-
 		S_feedforward.delay = delays_list*ms
-		np.savetxt("weights/" + str(seed_iter) + "/rand_delays.txt", S_feedforward.delay/ms)
+		np.savetxt("weights/" + save_dir + "/rand_delays.txt", S_feedforward.delay/ms)
 
 	else:
 		S_feedforward.w = np.fromfile(run_params["weight_file"] + "_weights.txt", sep="\n")
@@ -639,20 +559,19 @@ def main_run(stimuli_params, network_params, run_params, seed_iter, spike_pair_d
 
 	# Visualize delay-line alignments
 	alignment_results = visualise_connectivity(S_feedforward,
-						   fname=str(seed_iter) + run_params["output_dir"] + "/ff_connectivity",
+						   fname=save_dir + run_params["output_dir"] + "/ff_connectivity",
 						   spike_pair_differences=spike_pair_differences,
 						   integration_window=network_params["estimated_integration_window"])
 
 	print("\nAlignment results:")
 	pprint.pprint(alignment_results, depth=1)
 
-	with open("raw_data/" + str(seed_iter) + run_params["output_dir"] + "/alignment_results.json", 'w') as f:
+	with open("raw_data/" + save_dir + run_params["output_dir"] + "/alignment_results.json", 'w') as f:
 		json.dump(alignment_results, f)
-
 
 	# Visualize weights associated with ff-connectivity
 	visualise_connectivity(S_feedforward,
-						   fname=str(seed_iter) + run_params["output_dir"] + "/ff_connectivity",
+						   fname=save_dir + run_params["output_dir"] + "/ff_connectivity",
 						   spike_pair_differences=spike_pair_differences,
 						   integration_window=network_params["estimated_integration_window"],
 						   plot_weights_bool=True)
@@ -691,9 +610,8 @@ def main_run(stimuli_params, network_params, run_params, seed_iter, spike_pair_d
 	S_inh_to_exc.connect(p=network_params["inh_connection_prob"])
 	S_inh_to_exc.w = wmax*network_params["exc_to_inh_scaling"]
 
-	basic_visualise_connectivity(S_exc_to_inh, fname=str(seed_iter) + run_params["output_dir"] + "/exc_to_inh_connectivity")
-	basic_visualise_connectivity(S_inh_to_exc, fname=str(seed_iter) + run_params["output_dir"] + "/inh_to_exc_connectivity")
-
+	basic_visualise_connectivity(S_exc_to_inh, fname=save_dir + run_params["output_dir"] + "/exc_to_inh_connectivity")
+	basic_visualise_connectivity(S_inh_to_exc, fname=save_dir + run_params["output_dir"] + "/inh_to_exc_connectivity")
 
 
 	# =============================================================================
@@ -707,7 +625,7 @@ def main_run(stimuli_params, network_params, run_params, seed_iter, spike_pair_d
 
 	assert np.all(output_neurons_spikes_M.count==0) # Spike count for new monitor should be zero
 
-	# When running for the (shorter) non-training periods, monitor neurons
+	# When running for the (shorter) non-training periods, monitor neuron state variables
 	# This is avoided during training as it is quite memory intensive
 	if not run_params["STDP_on_bool"]:
 
@@ -743,28 +661,21 @@ def main_run(stimuli_params, network_params, run_params, seed_iter, spike_pair_d
 		for learning_iter in range(stimuli_params["num_intervals_for_weight_saving"] ):
 
 			run(duration_of_section*ms)
+
 			elapsed_time += duration_of_section
 			epoch_markers.append(elapsed_time/1000)
 
-			np.savetxt("weights/" + str(seed_iter) + run_params["output_dir"] + "/weights"
+			np.savetxt("weights/" + save_dir + run_params["output_dir"] + "/weights"
 					   + str(elapsed_time/1000) + "_seconds_of_sim.txt",
 				   	   S_feedforward.w)
 
-			# As deepcopy() does not work, iteratively create a copy of the original weights to 
-			# ensure STDP behaving as expected
+			# As deepcopy() does not work, iteratively create a copy of the weights
 			current_weights = [weight_iter for weight_iter in S_feedforward.w]
 			learning_weights_list.append(current_weights)
 
-			# print("\nPrevious count")
-			# print(prev_count)
-			# print("Unsubtracted count")
-			# print(output_neurons_spikes_M.count)
-			# print("Adjusted count and rate")
-			# print(output_neurons_spikes_M.count-prev_count)
-			# print((output_neurons_spikes_M.count-prev_count)/(duration_of_section/1000))
 			learning_fr_list.append((output_neurons_spikes_M.count-prev_count)/(duration_of_section/1000))
 
-			np.savetxt("raw_data/" + str(seed_iter) + run_params["output_dir"] + "/rates"
+			np.savetxt("raw_data/" + save_dir + run_params["output_dir"] + "/rates"
 					   + str(elapsed_time/1000) + "_seconds_of_sim.txt",
 				   	   (output_neurons_spikes_M.count-prev_count)/(duration_of_section/1000))
 			
@@ -773,25 +684,24 @@ def main_run(stimuli_params, network_params, run_params, seed_iter, spike_pair_d
 
 		assert elapsed_time==simulation_duration, "Cumulative run-time should equal total defined run-time"
 
-		np.savetxt("weights/" + str(seed_iter) + run_params["output_dir"] + "/weights_over_epochs_vals.txt",
+		np.savetxt("weights/" + save_dir + run_params["output_dir"] + "/weights_over_epochs_vals.txt",
 			   	   learning_weights_list)
 
-		np.savetxt("raw_data/" + str(seed_iter) + run_params["output_dir"] + "/rates_over_epochs_vals.txt",
+		np.savetxt("raw_data/" + save_dir + run_params["output_dir"] + "/rates_over_epochs_vals.txt",
 			   	   learning_fr_list)
 
-		np.savetxt("raw_data/" + str(seed_iter) + run_params["output_dir"] + "/epoch_markers.txt",
+		np.savetxt("raw_data/" + save_dir + run_params["output_dir"] + "/epoch_markers.txt",
 			   	   epoch_markers)
 
 		visualise_violins_over_epochs(learning_weights_list, epoch_markers,
 			fig_title="violins_weights_over_learning",
-			fname=str(seed_iter) + run_params["output_dir"],
+			fname=save_dir + run_params["output_dir"],
 			y_label="Synapse Weights")
 
 		visualise_violins_over_epochs(learning_fr_list, epoch_markers,
 			fig_title="violins_FR_over_learning",
-			fname=str(seed_iter) + run_params["output_dir"],
+			fname=save_dir + run_params["output_dir"],
 			y_label="Firing Rate (Hz)")
-
 
 	else:
 
@@ -804,15 +714,14 @@ def main_run(stimuli_params, network_params, run_params, seed_iter, spike_pair_d
 		# Check weights static if STDP was inactive
 		num_weights_to_check = 5
 		for ii in range(5):
-			assert pre_weights_copy[ii] == S_feedforward.w[ii], "\nWeights do not match despite no STDP! \nPre: " + str(pre_weights_copy[ii]) + "\nPost: " + str(S_feedforward.w[ii])
+			assert pre_weights_copy[ii] == S_feedforward.w[ii], "\nWeights changing despite no STDP! \nPre: " + str(pre_weights_copy[ii]) + "\nPost: " + str(S_feedforward.w[ii])
 
 	print("\nMinutes to run the simulation:")
 	print(round((time.time()-pre_time)/60,2))
 
 	# Save final weights and delays
-	np.savetxt("weights/" + str(seed_iter) +  run_params["output_dir"] + "/final_weights.txt", S_feedforward.w)
-	np.savetxt("weights/" + str(seed_iter) +  run_params["output_dir"] + "/final_delays.txt", S_feedforward.delay/ms)
-
+	np.savetxt("weights/" + save_dir +  run_params["output_dir"] + "/final_weights.txt", S_feedforward.w)
+	np.savetxt("weights/" + save_dir +  run_params["output_dir"] + "/final_delays.txt", S_feedforward.delay/ms)
 
 
 	# =============================================================================
@@ -821,36 +730,33 @@ def main_run(stimuli_params, network_params, run_params, seed_iter, spike_pair_d
 
 	# Plot various results and save the outputs for later analysis
 
-
 	# == Spike raster plots == 
 
-	input_drive_visualization(input_neurons_spikes_M, output_neurons_spikes_M, fig_title="Simulation Beginning",
-					 fname=str(seed_iter) + run_params["output_dir"] + "/raster_inputs_and_output_layer")
+	input_drive_visualization(input_neurons_spikes_M, output_neurons_spikes_M, fig_title="Input Drive ",
+					 fname=save_dir + run_params["output_dir"] + "/raster_inputs_and_output_layer")
 
 	visualise_raster(input_neurons_spikes_M, fig_title="Simulation Beginning",
-					 fname=str(seed_iter) + run_params["output_dir"] + "/raster_input_layer")
+					 fname=save_dir + run_params["output_dir"] + "/raster_input_layer")
 
 	visualise_raster(output_neurons_spikes_M, fig_title="Simulation Beginning",
-					 fname=str(seed_iter) + run_params["output_dir"] + "/raster_output_layer")
-
-
+					 fname=save_dir + run_params["output_dir"] + "/raster_output_layer")
 
 	# == Histograms of weights, delays and firing rates == 
 
 	visualise_histo(S_feedforward.w, "Weights", "Feed Forward Synapses",
-					fname=str(seed_iter) + run_params["output_dir"] + "/ff_weights_final", num_bins=20)
+					fname=save_dir + run_params["output_dir"] + "/ff_weights_final", num_bins=20)
 
 	visualise_histo(S_feedforward.delay, "Delays", "Feed Forward Delays",
-					fname=str(seed_iter) + run_params["output_dir"] + "/ff_delays", num_bins=20)
+					fname=save_dir + run_params["output_dir"] + "/ff_delays", num_bins=20)
 
 	visualise_histo(input_neurons_spikes_M.count/(simulation_duration/1000), "Firing Rate", "Input Layer",
-					fname=str(seed_iter) + run_params["output_dir"] + "/fr_input_layer", num_bins=10)
+					fname=save_dir + run_params["output_dir"] + "/fr_input_layer", num_bins=10)
 
 	visualise_histo(output_neurons_spikes_M.count/(simulation_duration/1000), "Firing Rate", "Output Layer",
-					fname=str(seed_iter) + run_params["output_dir"] + "/fr_output_layer", num_bins=10)
+					fname=save_dir + run_params["output_dir"] + "/fr_output_layer", num_bins=10)
 
 	visualise_histo(inhibitory_neurons_spikes_M.count/(simulation_duration/1000), "Firing Rate", "Inhibitory Layer",
-					fname=str(seed_iter) + run_params["output_dir"] + "/fr_inhibitory_layer", num_bins=10)
+					fname=save_dir + run_params["output_dir"] + "/fr_inhibitory_layer", num_bins=10)
 
 
 	# When running shorter, non-training simulations, visualize cellular properties
@@ -870,25 +776,25 @@ def main_run(stimuli_params, network_params, run_params, seed_iter, spike_pair_d
 
 		array_of_cellular_properties(output_neurons_vars_M,
 				output_neurons_spikes_M, neuron_IDs=upright_aligned_record_IDs, title="output_layer_upright_aligned",
-				fname=str(seed_iter) + run_params["output_dir"],
+				fname=save_dir + run_params["output_dir"],
 				v_threshold=(V_th/mV)/1000,
 				save_raw_bool=network_params["save_raw_bool"])
 
 		array_of_cellular_properties(output_neurons_vars_M,
 				output_neurons_spikes_M, neuron_IDs=inverted_aligned_record_IDs, title="output_layer_inverted_aligned",
-				fname=str(seed_iter) + run_params["output_dir"],
+				fname=save_dir + run_params["output_dir"],
 				v_threshold=(V_th/mV)/1000,
 				save_raw_bool=network_params["save_raw_bool"])
 
 		array_of_cellular_properties(output_neurons_vars_M,
 				output_neurons_spikes_M, neuron_IDs=both_aligned_record_IDs, title="output_layer_both_aligned",
-				fname=str(seed_iter) + run_params["output_dir"],
+				fname=save_dir + run_params["output_dir"],
 				v_threshold=(V_th/mV)/1000,
 				save_raw_bool=network_params["save_raw_bool"])
 
 		array_of_cellular_properties(output_neurons_vars_M,
 				output_neurons_spikes_M, neuron_IDs=nonaligned_record_IDs, title="output_layer_nonaligned",
-				fname=str(seed_iter) + run_params["output_dir"],
+				fname=save_dir + run_params["output_dir"],
 				v_threshold=(V_th/mV)/1000,
 				save_raw_bool=network_params["save_raw_bool"])
 
@@ -897,12 +803,12 @@ def main_run(stimuli_params, network_params, run_params, seed_iter, spike_pair_d
 
 		visualise_cellular_distribution(output_neurons_vars_M, "v",
 								fig_title="v_distribution_output_layer",
-								fname=str(seed_iter) + run_params["output_dir"],
+								fname=save_dir + run_params["output_dir"],
 								vertical_markers={"threshold":V_th,
 									"rest":E_l},
 								units=mV)
 
 		visualise_cellular_distribution(output_neurons_vars_M, "g_e",
 								fig_title="g_e_distribution_output_layer",
-								fname=str(seed_iter) + run_params["output_dir"],
+								fname=save_dir + run_params["output_dir"],
 								units=nS)

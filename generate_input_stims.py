@@ -10,7 +10,7 @@ def sample_positions(current_stimulus, params, eval_bool, position_iter):
 
     # Possible positions of the stimulus, determined by the position of the vertical bar
     # NB the extreme position of the vertical bar is constrained by the ultimate positions of the
-    # horizontal bar (i.e. stimulus needs to remain int he receptive field)
+    # horizontal bar (i.e. stimulus needs to remain in the receptive field)
     positions = [0 - params["relative_distances_dic"]["t"], params["x_rf_range"]/2,
                                 params["x_rf_range"] - params["relative_distances_dic"]["inverted_t"]]
 
@@ -24,10 +24,8 @@ def sample_positions(current_stimulus, params, eval_bool, position_iter):
         # NB that since we eventually want to test the ability to perform interpolation, only three possible locations are sampled from during training
         vertical_pos = np.random.choice(positions)
 
-
     # ** Not Implemented : for testing novel (e.g. interpolated) locations later **
     # vertical_pos = np.random.uniform(0, x_rf_range - relative_distances_dic["inverted_t"])
-
 
     # Depending on the stimulus (T or inverted_t), find the position of the horizontal bar
     horizontal_pos = vertical_pos + params["relative_distances_dic"][current_stimulus]
@@ -52,23 +50,30 @@ def add_horizontal_bar(image_canvas, horizontal_offset):
 
 
 def visualize_stimulus(presentation_iter, vertical_offset, horizontal_offset, current_stimulus, seed_iter, eval_bool):
+    """
+    Save an image indicating what the stimulus would look like in the
+    equivalent image space
+    """
 
     image_canvas = np.zeros((64,64))
 
     image_canvas = add_vertical_bar(image_canvas, vertical_offset)
     image_canvas = add_horizontal_bar(image_canvas, horizontal_offset)
 
-    imsave("figures/" + str(seed_iter) + "/input_stimuli_drift_iter_NA/eval_" + str(eval_bool) + "_presentation_"
+    imsave("figures/" + str(seed_iter) + "_drift_iter_NA/jitter_iter_NA_diffusion_iter_NA/input_stimuli/eval_" + str(eval_bool) + "_presentation_"
             + str(presentation_iter) + "_" + current_stimulus + ".png", image_canvas)
 
 
-def setup_inputs(params, neuron_drift_coefs_dic):
+def setup_inputs(params, neuron_drift_coefs_dic, diffusion_iter):
+    """
+    Setup the relative times for pairs of neurons
+    """
 
     initial_times_dic = {"vertical":np.random.uniform(-params["initial_times_limit"],params["initial_times_limit"],int(params["input_layer_size"]/2)),
                              "horizontal":np.random.uniform(-params["initial_times_limit"],params["initial_times_limit"],int(params["input_layer_size"]/2))}
 
     relative_times_vertical = simulate_diffusion(neuron_drift_coefs_dic["vertical"],
-                                                 params["diffusion_coef"], initial_times_dic["vertical"],
+                                                 diffusion_iter, initial_times_dic["vertical"],
                                                  params["spatial_step"], params["x_rf_range"])
 
     if params["correlated_neuron_pairs_bool"]:
@@ -77,7 +82,7 @@ def setup_inputs(params, neuron_drift_coefs_dic):
         neuron_drift_coefs_dic["horizontal"] = neuron_drift_coefs_dic["horizontal"]
 
     # NB even with 'fixed'/correlated pairs of neurons, the initial relative spike times are always sampled independently
-    relative_times_horizontal = simulate_diffusion(neuron_drift_coefs_dic["horizontal"], params["diffusion_coef"],
+    relative_times_horizontal = simulate_diffusion(neuron_drift_coefs_dic["horizontal"], diffusion_iter,
                                                     initial_times_dic["horizontal"],
                                                     params["spatial_step"], params["x_rf_range"])
 
@@ -93,7 +98,7 @@ def simulate_diffusion(drift_coefs, diffusion_coef, initial_times, spatial_step,
 
     relative_times = np.zeros(shape=(len(initial_times), int(x_rf_range/spatial_step)+1))
 
-    relative_times[:,0] = initial_times
+    relative_times[:,0] = initial_times  # Set the times corresponding to the extreme-most position
 
     for ii in range(1, int(x_rf_range/spatial_step)+1): # Add index because I would like to sample all the way to RF end
         # Brownian motion/Wiener Process with drift implemented as described in OU course book 5, page 95
@@ -107,13 +112,13 @@ def simulate_diffusion(drift_coefs, diffusion_coef, initial_times, spatial_step,
 
 
 def visualize_spike_slopes(num_neurons_to_visualize, params, relative_times_vertical,
-                           relative_times_horizontal, neuron_drift_coefs_dic, seed_iter):
+                           relative_times_horizontal, neuron_drift_coefs_dic, fig_dir):
 
     fig, axis_list = plt.subplots(1, max(num_neurons_to_visualize,2)) # The max here
-    # ensures a list is still created if num_neurons_to_visualize=1
+    # ensures a list object is still created even if num_neurons_to_visualize=1
 
     for sample_neuron in range(num_neurons_to_visualize):
-
+ 
         # Vertical bar neurons
         axis_list[sample_neuron].plot(np.arange(0, 1 + params["spatial_step"], params["spatial_step"]),
              relative_times_vertical[sample_neuron,:],
@@ -147,14 +152,13 @@ def visualize_spike_slopes(num_neurons_to_visualize, params, relative_times_vert
     axis_list[0].set(ylabel='Relative Spike Time (ms)')
 
     #fig.set_size_inches(18.5, 10.5)
-    savefig("figures/" + str(seed_iter) + "spike_slope_samples", dpi=300)
+    savefig("figures/" + fig_dir + "/spike_slope_samples", dpi=300)
     clf()
-
 
 
 # For each assembly, generate the spikes that occur within the given presentation window
 def generate_window_spikes(params, num_assemblies, presentation_iter, assembly_IDs,
-                           assembly_times, current_stimulus, random_iter, eval_bool):
+                           assembly_times, current_stimulus, random_iter, eval_bool, jitter_iter):
 
     temp_spike_times = []
     temp_spike_IDs = []
@@ -162,7 +166,7 @@ def generate_window_spikes(params, num_assemblies, presentation_iter, assembly_I
     # Jitter is always individual to each neuron, although it is not needed on truly random
     # stimulus presentations
     if not random_iter:
-        jitter_array = np.random.normal(0, params['jitter_std'], size=np.shape(assembly_times))
+        jitter_array = np.random.normal(0, jitter_iter, size=np.shape(assembly_times))
     if random_iter:
         jitter_array = np.zeros(shape=np.shape(assembly_times))
 
@@ -176,17 +180,6 @@ def generate_window_spikes(params, num_assemblies, presentation_iter, assembly_I
                      + (1+int(not eval_bool))*int(current_stimulus=='inverted_t') + random_iter)
                      * params['duration_of_presentations'])
 
-    # print("\npresentation_iter")
-    # print(presentation_iter)
-    # print("current_stimulus")
-    # print(current_stimulus)
-    # print("random_iter")
-    # print(random_iter)
-    # print("no eval")
-    # print(not eval_bool)
-    # print("Window offset")
-    # print(window_offset)
-
     # Spike pairs
     if params["correlated_neuron_pairs_bool"]:
 
@@ -195,7 +188,7 @@ def generate_window_spikes(params, num_assemblies, presentation_iter, assembly_I
         min_time = np.amin(assembly_times+jitter_array, axis=1)
 
         # Create the uniform offsets that are shared by each spike pair, i.e. this is not a single
-        # offset shared ainverted_t all neurons
+        # offset shared across all neurons; in particular, shape is automatically broadcast by max/min
         uniform_offset = np.random.uniform(0 - min_time, params['duration_of_presentations'] - max_time)
 
     # Synchronous waves/pulse packets
@@ -256,39 +249,11 @@ def sort_spikes(temp_spike_IDs, temp_spike_times):
     return sorted_spike_IDs, sorted_spike_times
 
 
-# #Randomly sample and add a single spike for each neuron
-# def add_random_firing(params, presentation_iter, sorted_spike_IDs, sorted_spike_times, current_stimulus):
-
-#     for neuron_iter in range(params['input_layer_size']):
-
-#         # Generate a spike time from a uniform random distrubtion, over the interval of interest (i.e. Poisson-like)
-#         # This is off-set by the appropriate time given the current presentation
-#         spike_time = (np.random.random()*params['duration_of_presentations'] +
-#                       (presentation_iter*2 + int(current_stimulus=='inverted_t')) * params['duration_of_presentations'])
-
-
-#         # NB not concerned with refactory period, as Poisson inputs that are the alternative do not respect this
-#         # current_times = sorted_spike_times[np.where(sorted_spike_IDs==neuron_iter)]
-
-#         # #If a randomly sampled neuron fires at the same time as a neuron that is already firing (within the refractory period), then shift the sample
-#         # while np.any((current_times >= spike_time-params['refractory_duration']) & (current_times <= spike_time+params['refractory_duration'])):
-#         #     spike_time = spike_time + 3*params['refractory_duration']
-        
-#         insertion_index = np.searchsorted(sorted_spike_times, spike_time)
-
-#         sorted_spike_times = np.insert(sorted_spike_times, insertion_index, spike_time)
-#         sorted_spike_IDs = np.insert(sorted_spike_IDs, insertion_index, neuron_iter)
-
-#         assert len(sorted_spike_IDs) == len(sorted_spike_times), "Number of insertions unequal."
-
-#     return sorted_spike_IDs, sorted_spike_times
-
-
 def generate_spikes_fixed_pairs(params, assembly_IDs, relative_times_vertical, relative_times_horizontal,
-                                seed_iter, eval_bool=False, save_images_bool=True, nonsense_cross_bool=False):
+                                seed_iter, jitter_iter, eval_bool=False, save_images_bool=True, nonsense_cross_bool=False):
 
     if eval_bool:
-        assert params['number_of_eval_presentations']%3==0, "Recommend number_of_presentations is divisible by 3 (corresponding translations) when evaluating"
+        assert params['number_of_eval_presentations']%3==0, "Recommend number_of_presentations is divisible by 3 (corresponding to possible translations) when evaluating"
 
     # Present the 'nonsense' cross on both presentations, which should 
     # not trigger significant learned upright or inverted T representations
@@ -312,9 +277,6 @@ def generate_spikes_fixed_pairs(params, assembly_IDs, relative_times_vertical, r
     # Iterate through the total number of presentations
     for presentation_iter in range(number_of_presentations):
 
-        # print("\nPresentation")
-        # print(presentation_iter)
-
         # Alternate between the two diffferent stimuli types
         for current_stimulus in stimuli_list:
 
@@ -324,7 +286,7 @@ def generate_spikes_fixed_pairs(params, assembly_IDs, relative_times_vertical, r
                                                                 number_of_presentations))
 
             # Use the location to determine the relative spike times (relative to 'internal cortical activity' --> as in Havenith et al)
-            # NB this is done for all the neurons of each bar type, as the stimulus position is fixed for a given presentation period (e.g. 250ms)
+            # NB this is done for all the neurons of each bar type, as the stimulus position is fixed for a given presentation period (e.g. 300ms)
             vertical_times = relative_times_vertical[:,int(vertical_pos/params["spatial_step"])]
             horizontal_times = relative_times_horizontal[:,int(horizontal_pos/params["spatial_step"])]
             # Given that the distance steps will be of a fixed interval, I directly calculate an estimate
@@ -336,19 +298,7 @@ def generate_spikes_fixed_pairs(params, assembly_IDs, relative_times_vertical, r
 
             num_assemblies = len(assembly_times)
 
-            # print("current_stimulus")
-            # print(current_stimulus)
-
             spike_pair_differences[current_stimulus] = assembly_times[:,1]-assembly_times[:,0]
-
-            # print("vertical and horizontal")
-            # print(vertical_pos)
-            # print(horizontal_pos)
-
-            # print("assemblies")
-            # print(assembly_times)
-            # print("differences")
-            # print(assembly_times[:,1]-assembly_times[:,0])
 
             if save_images_bool and (presentation_iter<=16):
                 visualize_stimulus(presentation_iter, vertical_pos,
@@ -361,49 +311,36 @@ def generate_spikes_fixed_pairs(params, assembly_IDs, relative_times_vertical, r
 
                 temp_spike_IDs, temp_spike_times = generate_window_spikes(params, num_assemblies, presentation_iter,
                                                                         assembly_IDs, assembly_times, current_stimulus,
-                                                                        random_iter, eval_bool)
+                                                                        random_iter, eval_bool, jitter_iter)
 
                 sorted_spike_IDs, sorted_spike_times = sort_spikes(temp_spike_IDs, temp_spike_times)
-
-                # print("Random iter")
-                # print(random_iter)
-                # print("Spikes:")
-                # print(sorted_spike_times)
-                # print(sorted_spike_IDs)
 
                 # NB no need to sort spikes outside the loop, as random spikes are inserted at the appropriate position,
                 # and presentations are constrained to their temporal window to prevent overlap
                 spike_IDs.extend(sorted_spike_IDs)
                 spike_times.extend(sorted_spike_times)
 
-    # print("Spike pair differences")
-    # print(spike_pair_differences)
-
     return np.asarray(spike_IDs), np.asarray(spike_times), spike_pair_differences
 
 
 # Generating stimuli assemblies with spike times deteremined by drift
-def create_underlying_spike_assemblies(stimuli_params, drift_iter, seed_iter):
+def create_underlying_spike_assemblies(stimuli_params, drift_iter, seed_iter, diffusion_iter):
 
     # Pair up the vertical and horizontal bar neurons
     assembly_IDs = np.concatenate((np.expand_dims(np.arange(0, stimuli_params['input_layer_size']/2), axis=1),
                                   np.expand_dims(np.arange(stimuli_params['input_layer_size']/2, stimuli_params['input_layer_size']), axis=1)), axis=1)
 
-    # neuron_drift_coefs_dic = {"vertical":np.random.uniform(-drift_iter, drift_iter, int(stimuli_params["input_layer_size"]/2)),
-    #                              "horizontal":np.random.uniform(-drift_iter, drift_iter, int(stimuli_params["input_layer_size"]/2))}
-
-    print("\n===TEMPORARILY CREATING STIMULI WITH A FIXED UPPER AND LOWER BOUND ON DRIFT===")
+    # Sign of the drift coefficient is random
     neuron_drift_coefs_dic = {"vertical":np.random.choice((-drift_iter, drift_iter), int(stimuli_params["input_layer_size"]/2)),
                                  "horizontal":np.random.choice((-drift_iter, drift_iter), int(stimuli_params["input_layer_size"]/2))}
 
-
-    relative_times_vertical, relative_times_horizontal, neuron_drift_coefs_dic = setup_inputs(stimuli_params, neuron_drift_coefs_dic)
+    relative_times_vertical, relative_times_horizontal, neuron_drift_coefs_dic = setup_inputs(stimuli_params, neuron_drift_coefs_dic, diffusion_iter)
 
     return assembly_IDs, relative_times_vertical, relative_times_horizontal, neuron_drift_coefs_dic
 
 
 def plot_input_raster(stimuli_params, assembly_IDs, spike_IDs, spike_times, neuron_drift_coefs_dic,
-                      seed_iter, eval_bool, input_name):
+                      fig_dir, eval_bool, input_name):
 
     # Plot raster of input activity
     visualization_interval = 2000  # ms
@@ -412,12 +349,13 @@ def plot_input_raster(stimuli_params, assembly_IDs, spike_IDs, spike_times, neur
 
         mask = np.nonzero((spike_times>=presentation_iter) & (spike_times<(presentation_iter+stimuli_params["duration_of_presentations"])))
 
+        # Actual stimulus activity shown in red
         if eval_bool:
             color='crimson'
             vlines(spike_times[mask],
                 spike_IDs[mask], ymax=1, alpha=0.5)
 
-        # For training stimuli, determine if the input is noise or signal and plot appropriately
+        # For training stimuli, determine if the input is alternating noise or signal and plot appropriately
         else: 
             if (presentation_iter % (stimuli_params["duration_of_presentations"]*2)) == 0:
                 color='crimson'
@@ -433,8 +371,6 @@ def plot_input_raster(stimuli_params, assembly_IDs, spike_IDs, spike_times, neur
     xlabel("Time (ms)")
     xlim(0, visualization_interval)
     title("Spatio-temporal Inputs")
-    savefig("figures/" + str(seed_iter) + "input_spike_pairs_raster_"
+    savefig("figures/" + fig_dir + "/input_spike_pairs_raster_"
            + input_name + ".png", dpi=300)
     clf()
-
-
